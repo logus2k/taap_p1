@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GAN Live Monitor</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600&display=swap');
 
@@ -30,7 +31,7 @@
   }
 
   .container {
-    max-width: 960px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 32px 24px;
   }
@@ -70,6 +71,35 @@
 
   .status-dot.connected { background: var(--accent-g); box-shadow: 0 0 8px var(--accent-g); }
 
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+  }
+
+  .elapsed {
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .elapsed-label {
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 8px;
+  }
+
+  .elapsed-value {
+    color: var(--accent-blue);
+    font-weight: 700;
+  }
+
+  .elapsed-value.stopped {
+    color: var(--text-dim);
+  }
+
   .stats-bar {
     display: flex;
     gap: 32px;
@@ -99,7 +129,15 @@
   .stat-value.d-loss { color: var(--accent-d); }
   .stat-value.step { color: var(--accent-blue); }
 
-  .grid-section h2 {
+  .main-content {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .grid-section h2,
+  .chart-section h2 {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -111,12 +149,12 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    margin-bottom: 32px;
   }
 
   .image-cell {
     position: relative;
-    aspect-ratio: 1;
+    width: 80px;
+    height: 80px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -145,6 +183,18 @@
     border-radius: 2px;
   }
 
+  .chart-section {
+    min-width: 0;
+  }
+
+  #lossChart {
+    width: 100%;
+    height: 360px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
   .waiting {
     text-align: center;
     padding: 80px 20px;
@@ -166,6 +216,19 @@
     0%, 100% { opacity: 0.3; }
     50% { opacity: 1; }
   }
+
+  .done-badge {
+    display: inline-block;
+    background: var(--accent-g);
+    color: var(--bg);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    margin-left: 12px;
+  }
 </style>
 </head>
 <body>
@@ -175,6 +238,12 @@
     <div class="status">
       <span class="status-dot" id="statusDot"></span>
       <span id="statusText">connecting</span>
+    </div>
+    <div class="header-right">
+      <div class="elapsed">
+        <span class="elapsed-label">Elapsed</span>
+        <span class="elapsed-value" id="elapsedVal">00:00:00</span>
+      </div>
     </div>
   </header>
 
@@ -191,16 +260,19 @@
       <span class="stat-label">D Loss</span>
       <span class="stat-value d-loss" id="dLossVal">--</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">FPS</span>
-      <span class="stat-value" id="fpsVal">--</span>
-    </div>
   </div>
 
-  <div class="grid-section">
-    <h2>Generator Output</h2>
-    <div id="content">
-      <div class="waiting"><span class="pulse"></span>Waiting for training data...</div>
+  <div class="main-content">
+    <div class="grid-section">
+      <h2>Generator Output</h2>
+      <div id="gridContent">
+        <div class="waiting"><span class="pulse"></span>Waiting for training data...</div>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Loss History</h2>
+      <div id="lossChart"></div>
     </div>
   </div>
 </div>
@@ -213,13 +285,115 @@ const statusText = document.getElementById("statusText");
 const stepVal = document.getElementById("stepVal");
 const gLossVal = document.getElementById("gLossVal");
 const dLossVal = document.getElementById("dLossVal");
-const fpsVal = document.getElementById("fpsVal");
-const content = document.getElementById("content");
+const elapsedVal = document.getElementById("elapsedVal");
+const gridContent = document.getElementById("gridContent");
 
 let grid = null;
 let cells = [];
-let lastFrameTime = 0;
 
+/* Timer state */
+let timerStart = null;
+let timerInterval = null;
+let timerRunning = false;
+
+/* Chart setup */
+const chart = echarts.init(document.getElementById("lossChart"), null, { renderer: "svg" });
+const gLossData = [];
+const dLossData = [];
+
+const chartOption = {
+  backgroundColor: "transparent",
+  grid: {
+    top: 40,
+    right: 24,
+    bottom: 40,
+    left: 56
+  },
+  legend: {
+    data: ["G Loss", "D Loss"],
+    top: 8,
+    textStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 }
+  },
+  xAxis: {
+    type: "value",
+    name: "Step",
+    nameLocation: "center",
+    nameGap: 28,
+    nameTextStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 },
+    axisLine: { lineStyle: { color: "#1e1e26" } },
+    axisTick: { lineStyle: { color: "#1e1e26" } },
+    axisLabel: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 9 },
+    splitLine: { lineStyle: { color: "#1e1e26" } }
+  },
+  yAxis: {
+    type: "value",
+    name: "Loss",
+    nameLocation: "center",
+    nameGap: 40,
+    nameTextStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 },
+    axisLine: { lineStyle: { color: "#1e1e26" } },
+    axisTick: { lineStyle: { color: "#1e1e26" } },
+    axisLabel: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 9 },
+    splitLine: { lineStyle: { color: "#1e1e26" } }
+  },
+  series: [
+    {
+      name: "G Loss",
+      type: "line",
+      data: gLossData,
+      smooth: true,
+      symbol: "none",
+      lineStyle: { color: "#22c55e", width: 2 },
+      itemStyle: { color: "#22c55e" }
+    },
+    {
+      name: "D Loss",
+      type: "line",
+      data: dLossData,
+      smooth: true,
+      symbol: "none",
+      lineStyle: { color: "#ef4444", width: 2 },
+      itemStyle: { color: "#ef4444" }
+    }
+  ],
+  animation: false
+};
+
+chart.setOption(chartOption);
+window.addEventListener("resize", () => chart.resize());
+
+/* Timer functions */
+function formatTime(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return [h, m, s].map(v => String(v).padStart(2, "0")).join(":");
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  timerStart = Date.now();
+  timerRunning = true;
+  timerInterval = setInterval(() => {
+    elapsedVal.textContent = formatTime(Date.now() - timerStart);
+  }, 200);
+}
+
+function stopTimer() {
+  if (!timerRunning) return;
+  timerRunning = false;
+  clearInterval(timerInterval);
+  elapsedVal.classList.add("stopped");
+
+  /* Add done badge */
+  const badge = document.createElement("span");
+  badge.className = "done-badge";
+  badge.textContent = "Complete";
+  elapsedVal.parentElement.appendChild(badge);
+}
+
+/* Socket events */
 socket.on("connect", () => {
   statusDot.classList.add("connected");
   statusText.textContent = "connected";
@@ -236,7 +410,6 @@ function ensureGrid(count) {
   grid = document.createElement("div");
   grid.className = "image-grid";
 
-  /* auto-detect columns: nearest square-ish layout */
   const cols = Math.ceil(Math.sqrt(count));
   grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
 
@@ -255,25 +428,25 @@ function ensureGrid(count) {
     cells.push({ el: cell, img, label });
   }
 
-  content.innerHTML = "";
-  content.appendChild(grid);
+  gridContent.innerHTML = "";
+  gridContent.appendChild(grid);
 }
 
 socket.on("batch", (data) => {
   const { step, g_loss, d_loss, frames } = data;
+
+  /* Start timer on first batch */
+  startTimer();
 
   /* Stats */
   stepVal.textContent = step.toLocaleString();
   gLossVal.textContent = g_loss.toFixed(4);
   dLossVal.textContent = d_loss.toFixed(4);
 
-  /* FPS */
-  const now = performance.now();
-  if (lastFrameTime > 0) {
-    const fps = 1000 / (now - lastFrameTime);
-    fpsVal.textContent = fps.toFixed(1);
-  }
-  lastFrameTime = now;
+  /* Chart data */
+  gLossData.push([step, g_loss]);
+  dLossData.push([step, d_loss]);
+  chart.setOption({ series: [{ data: gLossData }, { data: dLossData }] });
 
   /* Grid */
   ensureGrid(frames.length);
@@ -283,21 +456,22 @@ socket.on("batch", (data) => {
     const cell = cells[index];
     if (!cell) return;
 
-    /* image is an ArrayBuffer (binary) from Socket.IO */
     const blob = new Blob([image], { type: "image/jpeg" });
     const url = URL.createObjectURL(blob);
 
-    /* Revoke previous URL to avoid memory leak */
     if (cell.img._prevUrl) URL.revokeObjectURL(cell.img._prevUrl);
     cell.img.src = url;
     cell.img._prevUrl = url;
 
     cell.label.textContent = label;
 
-    /* Flash border on update */
     cell.el.classList.add("fresh");
     setTimeout(() => cell.el.classList.remove("fresh"), 300);
   });
+});
+
+socket.on("done", () => {
+  stopTimer();
 });
 </script>
 </body>

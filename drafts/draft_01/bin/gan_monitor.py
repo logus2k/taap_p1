@@ -3,9 +3,10 @@ GAN Live Monitor — Socket.IO server for real-time training visualization.
 
 Usage from notebook:
     Cell (globals):   LIVE_MONITOR = True
-    Cell (server):    from gan_monitor import start_server, emit_frames
+    Cell (server):    from bin.gan_monitor import start_server, emit_frames, emit_done
                       if LIVE_MONITOR: start_server(port=8765)
     Cell (training):  if LIVE_MONITOR: emit_frames(images, labels, step, g_loss, d_loss)
+    Cell (after):     if LIVE_MONITOR: emit_done()
 """
 
 import asyncio
@@ -29,7 +30,7 @@ _loop = None
 
 
 def _load_html():
-    """Load the HTML client from the same directory as this module."""
+    """Load the HTML client from web/ sibling folder."""
     import pathlib
     html_path = pathlib.Path(__file__).parent.parent / "web" / "index.html"
     return html_path.read_text()
@@ -82,7 +83,7 @@ def start_server(host="0.0.0.0", port=8765):
     print(f"[gan_monitor] Live monitor at http://localhost:{port}")
 
 
-# --- Emit helper ---
+# --- Emit helpers ---
 def emit_frames(images, labels, step, g_loss, d_loss):
     """
     Send generated images to all connected browsers.
@@ -94,7 +95,6 @@ def emit_frames(images, labels, step, g_loss, d_loss):
         g_loss: Generator loss (float)
         d_loss: Discriminator loss (float)
     """
-    import torch
     from PIL import Image
 
     frames = []
@@ -119,4 +119,12 @@ def emit_frames(images, labels, step, g_loss, d_loss):
     # Bridge sync caller -> async Socket.IO server
     if _loop is not None and _loop.is_running():
         future = asyncio.run_coroutine_threadsafe(_sio_async.emit("batch", payload), _loop)
-        future.result(timeout=2)  # block briefly to ensure delivery
+        future.result(timeout=2)
+
+
+def emit_done():
+    """Signal that training has completed. Stops the timer in connected browsers."""
+    if _loop is not None and _loop.is_running():
+        future = asyncio.run_coroutine_threadsafe(_sio_async.emit("done", {}), _loop)
+        future.result(timeout=2)
+    print("[gan_monitor] Training complete signal sent")
