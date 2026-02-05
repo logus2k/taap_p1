@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAN Live Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0c;
+    --surface: #131318;
+    --border: #1e1e26;
+    --text: #c8c8d0;
+    --text-dim: #5a5a6a;
+    --accent-g: #22c55e;
+    --accent-d: #ef4444;
+    --accent-blue: #3b82f6;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+
+  header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .status {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+
+  .status-dot.connected { background: var(--accent-g); box-shadow: 0 0 8px var(--accent-g); }
+
+  .stats-bar {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 28px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .stat-label {
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  .stat-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-value.g-loss { color: var(--accent-g); }
+  .stat-value.d-loss { color: var(--accent-d); }
+  .stat-value.step { color: var(--accent-blue); }
+
+  .grid-section h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  .image-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+
+  .image-cell {
+    position: relative;
+    aspect-ratio: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .image-cell.fresh { border-color: var(--accent-blue); }
+
+  .image-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  .image-cell .cell-label {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+    background: rgba(10, 10, 12, 0.8);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+
+  .waiting {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .waiting .pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    margin-right: 10px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>GAN Monitor</h1>
+    <div class="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">connecting</span>
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-label">Step</span>
+      <span class="stat-value step" id="stepVal">--</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">G Loss</span>
+      <span class="stat-value g-loss" id="gLossVal">--</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">D Loss</span>
+      <span class="stat-value d-loss" id="dLossVal">--</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">FPS</span>
+      <span class="stat-value" id="fpsVal">--</span>
+    </div>
+  </div>
+
+  <div class="grid-section">
+    <h2>Generator Output</h2>
+    <div id="content">
+      <div class="waiting"><span class="pulse"></span>Waiting for training data...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io({ transports: ["websocket"] });
+
+const statusDot = document.getElementById("statusDot");
+const statusText = document.getElementById("statusText");
+const stepVal = document.getElementById("stepVal");
+const gLossVal = document.getElementById("gLossVal");
+const dLossVal = document.getElementById("dLossVal");
+const fpsVal = document.getElementById("fpsVal");
+const content = document.getElementById("content");
+
+let grid = null;
+let cells = [];
+let lastFrameTime = 0;
+
+socket.on("connect", () => {
+  statusDot.classList.add("connected");
+  statusText.textContent = "connected";
+});
+
+socket.on("disconnect", () => {
+  statusDot.classList.remove("connected");
+  statusText.textContent = "disconnected";
+});
+
+function ensureGrid(count) {
+  if (grid && cells.length === count) return;
+
+  grid = document.createElement("div");
+  grid.className = "image-grid";
+
+  /* auto-detect columns: nearest square-ish layout */
+  const cols = Math.ceil(Math.sqrt(count));
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  cells = [];
+  for (let i = 0; i < count; i++) {
+    const cell = document.createElement("div");
+    cell.className = "image-cell";
+
+    const img = document.createElement("img");
+    const label = document.createElement("span");
+    label.className = "cell-label";
+
+    cell.appendChild(img);
+    cell.appendChild(label);
+    grid.appendChild(cell);
+    cells.push({ el: cell, img, label });
+  }
+
+  content.innerHTML = "";
+  content.appendChild(grid);
+}
+
+socket.on("batch", (data) => {
+  const { step, g_loss, d_loss, frames } = data;
+
+  /* Stats */
+  stepVal.textContent = step.toLocaleString();
+  gLossVal.textContent = g_loss.toFixed(4);
+  dLossVal.textContent = d_loss.toFixed(4);
+
+  /* FPS */
+  const now = performance.now();
+  if (lastFrameTime > 0) {
+    const fps = 1000 / (now - lastFrameTime);
+    fpsVal.textContent = fps.toFixed(1);
+  }
+  lastFrameTime = now;
+
+  /* Grid */
+  ensureGrid(frames.length);
+
+  frames.forEach((frame) => {
+    const { index, label, image } = frame;
+    const cell = cells[index];
+    if (!cell) return;
+
+    /* image is an ArrayBuffer (binary) from Socket.IO */
+    const blob = new Blob([image], { type: "image/jpeg" });
+    const url = URL.createObjectURL(blob);
+
+    /* Revoke previous URL to avoid memory leak */
+    if (cell.img._prevUrl) URL.revokeObjectURL(cell.img._prevUrl);
+    cell.img.src = url;
+    cell.img._prevUrl = url;
+
+    cell.label.textContent = label;
+
+    /* Flash border on update */
+    cell.el.classList.add("fresh");
+    setTimeout(() => cell.el.classList.remove("fresh"), 300);
+  });
+});
+</script>
+</body>
+</html>
