@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GAN Live Monitor</title>
+<title>GAN Benchmark Monitor</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
 <style>
@@ -14,12 +14,16 @@
   :root {
     --bg: #0a0a0c;
     --surface: #131318;
+    --surface-2: #1a1a22;
     --border: #1e1e26;
     --text: #c8c8d0;
     --text-dim: #5a5a6a;
     --accent-g: #22c55e;
     --accent-d: #ef4444;
     --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --accent-orange: #f97316;
+    --accent-cyan: #06b6d4;
   }
 
   body {
@@ -31,23 +35,23 @@
   }
 
   .container {
-    max-width: 1280px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: 24px;
   }
 
   header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 16px;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     border-bottom: 1px solid var(--border);
     padding-bottom: 16px;
   }
 
   header h1 {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 600;
     letter-spacing: -0.02em;
   }
@@ -74,7 +78,7 @@
   .header-right {
     margin-left: auto;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 24px;
   }
 
@@ -96,66 +100,186 @@
     font-weight: 700;
   }
 
-  .elapsed-value.stopped {
-    color: var(--text-dim);
-  }
-
-  .stats-bar {
-    display: flex;
-    gap: 32px;
-    margin-bottom: 28px;
-    padding: 14px 20px;
+  /* Strategy Progress Section */
+  .benchmark-progress {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+
+  .benchmark-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .current-strategy {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .strategy-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-left: 8px;
+  }
+
+  .strategy-tag.bce { background: var(--accent-blue); color: white; }
+  .strategy-tag.lsgan { background: var(--accent-g); color: white; }
+  .strategy-tag.hinge { background: var(--accent-orange); color: white; }
+  .strategy-tag.wgangp { background: var(--accent-purple); color: white; }
+
+  .strategy-count {
+    color: var(--text-dim);
     font-size: 12px;
   }
 
-  .stat-item {
+  .progress-container {
     display: flex;
-    align-items: baseline;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .progress-bar-wrapper {
+    flex: 1;
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  .progress-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    min-width: 120px;
+    text-align: right;
+  }
+
+  /* Strategy Pills */
+  .strategy-pills {
+    display: flex;
     gap: 8px;
+    margin-top: 12px;
+  }
+
+  .strategy-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+
+  .strategy-pill.active {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+  }
+
+  .strategy-pill.complete {
+    border-color: var(--accent-g);
+    color: var(--accent-g);
+  }
+
+  /* Main Grid */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+  }
+
+  .left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Stats Bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .stat-item {
+    text-align: center;
   }
 
   .stat-label {
     color: var(--text-dim);
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 0.08em;
+    margin-bottom: 4px;
   }
 
-  .stat-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-value { 
+    font-weight: 700; 
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+  }
   .stat-value.g-loss { color: var(--accent-g); }
   .stat-value.d-loss { color: var(--accent-d); }
   .stat-value.step { color: var(--accent-blue); }
 
-  .main-content {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 32px;
-    align-items: start;
+  /* Section styling */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
   }
 
-  .grid-section h2,
-  .chart-section h2 {
+  .section h2 {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text-dim);
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
 
+  /* Image Grid */
   .image-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    gap: 6px;
   }
 
   .image-cell {
     position: relative;
-    width: 80px;
-    height: 80px;
-    background: var(--surface);
+    width: 72px;
+    height: 72px;
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
@@ -173,30 +297,75 @@
 
   .image-cell .cell-label {
     position: absolute;
-    top: 4px;
-    left: 6px;
-    font-size: 9px;
+    top: 3px;
+    left: 5px;
+    font-size: 8px;
     color: var(--text-dim);
-    background: rgba(10, 10, 12, 0.8);
+    background: rgba(10, 10, 12, 0.85);
     padding: 1px 4px;
     border-radius: 2px;
   }
 
-  .chart-section {
-    min-width: 0;
-  }
-
+  /* Charts */
   #lossChart {
     width: 100%;
-    height: 360px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    height: 280px;
   }
 
+  /* Results Table */
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .results-table th {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .results-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .results-table .strategy-name {
+    font-weight: 600;
+  }
+
+  .results-table .best {
+    color: var(--accent-g);
+  }
+
+  .rank-badge {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+
+  .rank-badge.gold { background: #fbbf24; color: #000; }
+  .rank-badge.silver { background: #9ca3af; color: #000; }
+  .rank-badge.bronze { background: #d97706; color: #fff; }
+
+  /* Waiting state */
   .waiting {
     text-align: center;
-    padding: 80px 20px;
+    padding: 60px 20px;
     color: var(--text-dim);
     font-size: 13px;
   }
@@ -220,12 +389,12 @@
     display: inline-block;
     background: var(--accent-g);
     color: var(--bg);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: 3px 8px;
-    border-radius: 3px;
+    padding: 4px 10px;
+    border-radius: 4px;
     margin-left: 12px;
   }
 </style>
@@ -233,45 +402,90 @@
 <body>
 <div class="container">
   <header>
-    <h1>GAN Monitor</h1>
+    <h1>GAN Benchmark Monitor</h1>
     <div class="status">
       <span class="status-dot" id="statusDot"></span>
       <span id="statusText">connecting</span>
     </div>
     <div class="header-right">
       <div class="elapsed">
-        <span class="elapsed-label">Elapsed</span>
+        <span class="elapsed-label">Total Time</span>
         <span class="elapsed-value" id="elapsedVal">00:00:00</span>
       </div>
     </div>
   </header>
 
-  <div class="stats-bar">
-    <div class="stat-item">
-      <span class="stat-label">Step</span>
-      <span class="stat-value step" id="stepVal">--</span>
+  <!-- Benchmark Progress -->
+  <div class="benchmark-progress" id="benchmarkProgress" style="display: none;">
+    <div class="benchmark-header">
+      <div class="current-strategy">
+        Training: <span id="currentStrategyName">—</span>
+        <span class="strategy-tag" id="strategyTag"></span>
+      </div>
+      <div class="strategy-count" id="strategyCount">Strategy 0 / 0</div>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">G Loss</span>
-      <span class="stat-value g-loss" id="gLossVal">--</span>
+    <div class="progress-container">
+      <div class="progress-bar-wrapper">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text" id="progressText">Step 0 / 0</div>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">D Loss</span>
-      <span class="stat-value d-loss" id="dLossVal">--</span>
-    </div>
+    <div class="strategy-pills" id="strategyPills"></div>
   </div>
 
-  <div class="main-content">
-    <div class="grid-section">
-      <h2>Generator Output</h2>
-      <div id="gridContent">
-        <div class="waiting"><span class="pulse"></span>Waiting for training data...</div>
+  <div class="main-grid">
+    <div class="left-panel">
+      <!-- Stats -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-label">Step</div>
+          <div class="stat-value step" id="stepVal">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">G Loss</div>
+          <div class="stat-value g-loss" id="gLossVal">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">D Loss</div>
+          <div class="stat-value d-loss" id="dLossVal">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">FPS</div>
+          <div class="stat-value" id="fpsVal">—</div>
+        </div>
+      </div>
+
+      <!-- Generator Output -->
+      <div class="section">
+        <h2>Generator Output</h2>
+        <div id="gridContent">
+          <div class="waiting"><span class="pulse"></span>Waiting for training...</div>
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div class="section" id="resultsSection" style="display: none;">
+        <h2>Benchmark Results</h2>
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>FID ↓</th>
+              <th>KID ↓</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
       </div>
     </div>
 
-    <div class="chart-section">
-      <h2>Loss History</h2>
-      <div id="lossChart"></div>
+    <div class="right-panel">
+      <!-- Loss Chart -->
+      <div class="section" style="flex: 1;">
+        <h2>Loss History</h2>
+        <div id="lossChart"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -285,48 +499,63 @@ const socket = io({
   transports: ["websocket"]
 });
 
+// DOM elements
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
 const stepVal = document.getElementById("stepVal");
 const gLossVal = document.getElementById("gLossVal");
 const dLossVal = document.getElementById("dLossVal");
+const fpsVal = document.getElementById("fpsVal");
 const elapsedVal = document.getElementById("elapsedVal");
 const gridContent = document.getElementById("gridContent");
+const benchmarkProgress = document.getElementById("benchmarkProgress");
+const currentStrategyName = document.getElementById("currentStrategyName");
+const strategyTag = document.getElementById("strategyTag");
+const strategyCount = document.getElementById("strategyCount");
+const progressBar = document.getElementById("progressBar");
+const progressText = document.getElementById("progressText");
+const strategyPills = document.getElementById("strategyPills");
+const resultsSection = document.getElementById("resultsSection");
+const resultsBody = document.getElementById("resultsBody");
 
 let grid = null;
 let cells = [];
+let lastFrameTime = 0;
 
-/* Timer state */
+// Timer state
 let timerStart = null;
 let timerInterval = null;
 let timerRunning = false;
 
-/* Chart setup */
+// Benchmark state
+let benchmarkState = {
+  strategies: [],
+  numSteps: 0,
+  currentStrategy: null,
+  currentIndex: 0,
+  results: []
+};
+
+// Chart setup
 const chart = echarts.init(document.getElementById("lossChart"), null, { renderer: "svg" });
-const gLossData = [];
-const dLossData = [];
+let gLossData = [];
+let dLossData = [];
 
 const chartOption = {
   backgroundColor: "transparent",
-  grid: {
-    top: 40,
-    right: 24,
-    bottom: 40,
-    left: 56
-  },
+  grid: { top: 40, right: 20, bottom: 36, left: 50 },
   legend: {
     data: ["G Loss", "D Loss"],
-    top: 8,
+    top: 6,
     textStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 }
   },
   xAxis: {
     type: "value",
     name: "Step",
     nameLocation: "center",
-    nameGap: 28,
+    nameGap: 24,
     nameTextStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 },
     axisLine: { lineStyle: { color: "#1e1e26" } },
-    axisTick: { lineStyle: { color: "#1e1e26" } },
     axisLabel: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 9 },
     splitLine: { lineStyle: { color: "#1e1e26" } }
   },
@@ -334,10 +563,9 @@ const chartOption = {
     type: "value",
     name: "Loss",
     nameLocation: "center",
-    nameGap: 40,
+    nameGap: 36,
     nameTextStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 },
     axisLine: { lineStyle: { color: "#1e1e26" } },
-    axisTick: { lineStyle: { color: "#1e1e26" } },
     axisLabel: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 9 },
     splitLine: { lineStyle: { color: "#1e1e26" } }
   },
@@ -348,7 +576,7 @@ const chartOption = {
       data: gLossData,
       smooth: true,
       symbol: "none",
-      lineStyle: { color: "#22c55e", width: 2 },
+      lineStyle: { color: "#22c55e", width: 1.5 },
       itemStyle: { color: "#22c55e" }
     },
     {
@@ -357,7 +585,7 @@ const chartOption = {
       data: dLossData,
       smooth: true,
       symbol: "none",
-      lineStyle: { color: "#ef4444", width: 2 },
+      lineStyle: { color: "#ef4444", width: 1.5 },
       itemStyle: { color: "#ef4444" }
     }
   ],
@@ -367,7 +595,7 @@ const chartOption = {
 chart.setOption(chartOption);
 window.addEventListener("resize", () => chart.resize());
 
-/* Timer functions */
+// Timer functions
 function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
@@ -389,16 +617,69 @@ function stopTimer() {
   if (!timerRunning) return;
   timerRunning = false;
   clearInterval(timerInterval);
-  elapsedVal.classList.add("stopped");
-
-  /* Add done badge */
-  const badge = document.createElement("span");
-  badge.className = "done-badge";
-  badge.textContent = "Complete";
-  elapsedVal.parentElement.appendChild(badge);
 }
 
-/* Socket events */
+// Strategy colors
+const strategyColors = {
+  'bce': '#3b82f6',
+  'lsgan': '#22c55e',
+  'hinge': '#f97316',
+  'wgan-gp': '#8b5cf6'
+};
+
+// Update strategy pills
+function updateStrategyPills() {
+  strategyPills.innerHTML = '';
+  benchmarkState.strategies.forEach((s, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'strategy-pill';
+    pill.textContent = s.toUpperCase();
+    
+    if (i < benchmarkState.currentIndex) {
+      pill.classList.add('complete');
+    } else if (i === benchmarkState.currentIndex) {
+      pill.classList.add('active');
+    }
+    
+    strategyPills.appendChild(pill);
+  });
+}
+
+// Update results table
+function updateResultsTable() {
+  if (benchmarkState.results.length === 0) {
+    resultsSection.style.display = 'none';
+    return;
+  }
+  
+  resultsSection.style.display = 'block';
+  
+  // Sort by FID
+  const sorted = [...benchmarkState.results].sort((a, b) => a.fid - b.fid);
+  
+  resultsBody.innerHTML = '';
+  sorted.forEach((r, i) => {
+    const row = document.createElement('tr');
+    
+    let rankBadge = '';
+    if (i === 0) rankBadge = '<span class="rank-badge gold">1</span>';
+    else if (i === 1) rankBadge = '<span class="rank-badge silver">2</span>';
+    else if (i === 2) rankBadge = '<span class="rank-badge bronze">3</span>';
+    
+    const isBest = i === 0;
+    
+    row.innerHTML = `
+      <td class="strategy-name">${rankBadge}${r.strategy.toUpperCase()}</td>
+      <td class="${isBest ? 'best' : ''}">${r.fid.toFixed(2)}</td>
+      <td>${r.kid_mean.toFixed(4)} ± ${r.kid_std.toFixed(4)}</td>
+      <td>${r.training_time.toFixed(1)}s</td>
+    `;
+    
+    resultsBody.appendChild(row);
+  });
+}
+
+// Socket events
 socket.on("connect", () => {
   statusDot.classList.add("connected");
   statusText.textContent = "connected";
@@ -407,6 +688,38 @@ socket.on("connect", () => {
 socket.on("disconnect", () => {
   statusDot.classList.remove("connected");
   statusText.textContent = "disconnected";
+});
+
+socket.on("benchmark_start", (data) => {
+  benchmarkState.strategies = data.strategies;
+  benchmarkState.numSteps = data.num_steps;
+  benchmarkState.results = [];
+  
+  benchmarkProgress.style.display = 'block';
+  updateStrategyPills();
+  startTimer();
+});
+
+socket.on("strategy_start", (data) => {
+  benchmarkState.currentStrategy = data.strategy;
+  benchmarkState.currentIndex = data.index;
+  
+  currentStrategyName.textContent = data.strategy.toUpperCase();
+  strategyTag.textContent = data.strategy.toUpperCase();
+  strategyTag.className = 'strategy-tag ' + data.strategy.replace('-', '');
+  strategyCount.textContent = `Strategy ${data.index + 1} / ${data.total}`;
+  
+  // Reset chart data for new strategy
+  gLossData = [];
+  dLossData = [];
+  chart.setOption({ series: [{ data: gLossData }, { data: dLossData }] });
+  
+  updateStrategyPills();
+});
+
+socket.on("strategy_end", (data) => {
+  benchmarkState.results.push(data);
+  updateResultsTable();
 });
 
 function ensureGrid(count) {
@@ -442,22 +755,44 @@ function ensureGrid(count) {
 }
 
 socket.on("batch", (data) => {
-  const { step, g_loss, d_loss, frames } = data;
+  const { step, g_loss, d_loss, frames, num_steps, progress } = data;
 
-  /* Start timer on first batch */
   startTimer();
 
-  /* Stats */
+  // Stats
   stepVal.textContent = step.toLocaleString();
   gLossVal.textContent = g_loss.toFixed(4);
   dLossVal.textContent = d_loss.toFixed(4);
 
-  /* Chart data */
-  gLossData.push([step, g_loss]);
-  dLossData.push([step, d_loss]);
-  chart.setOption({ series: [{ data: gLossData }, { data: dLossData }] });
+  // Progress
+  if (num_steps) {
+    progressBar.style.width = progress + '%';
+    progressText.textContent = `Step ${step.toLocaleString()} / ${num_steps.toLocaleString()}`;
+  }
 
-  /* Grid */
+  // FPS
+  const now = performance.now();
+  if (lastFrameTime > 0) {
+    const fps = 1000 / (now - lastFrameTime);
+    fpsVal.textContent = fps.toFixed(1);
+  }
+  lastFrameTime = now;
+
+  // Chart data (downsample for performance)
+  if (step % 10 === 0) {
+    gLossData.push([step, g_loss]);
+    dLossData.push([step, d_loss]);
+    
+    // Limit data points
+    if (gLossData.length > 1500) {
+      gLossData = gLossData.filter((_, i) => i % 2 === 0);
+      dLossData = dLossData.filter((_, i) => i % 2 === 0);
+    }
+    
+    chart.setOption({ series: [{ data: gLossData }, { data: dLossData }] });
+  }
+
+  // Grid
   ensureGrid(frames.length);
 
   frames.forEach((frame) => {
@@ -465,16 +800,15 @@ socket.on("batch", (data) => {
     const cell = cells[index];
     if (!cell) return;
 
-    /* image is an ArrayBuffer of 784 grayscale bytes (28x28) */
     const gray = new Uint8Array(image);
     const rgba = new Uint8ClampedArray(28 * 28 * 4);
 
     for (let i = 0; i < 784; i++) {
       const v = gray[i];
-      rgba[i * 4 + 0] = v;  /* R */
-      rgba[i * 4 + 1] = v;  /* G */
-      rgba[i * 4 + 2] = v;  /* B */
-      rgba[i * 4 + 3] = 255; /* A */
+      rgba[i * 4 + 0] = v;
+      rgba[i * 4 + 1] = v;
+      rgba[i * 4 + 2] = v;
+      rgba[i * 4 + 3] = 255;
     }
 
     const imgData = new ImageData(rgba, 28, 28);
@@ -489,6 +823,14 @@ socket.on("batch", (data) => {
 
 socket.on("done", () => {
   stopTimer();
+  
+  const badge = document.createElement("span");
+  badge.className = "done-badge";
+  badge.textContent = "Complete";
+  elapsedVal.parentElement.appendChild(badge);
+  
+  progressBar.style.width = '100%';
+  progressText.textContent = 'Benchmark Complete';
 });
 </script>
 </body>

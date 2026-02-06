@@ -3,10 +3,17 @@ GAN Live Monitor — Socket.IO server for real-time training visualization.
 
 Usage from notebook:
     Cell (globals):   LIVE_MONITOR = True
-    Cell (server):    from bin.gan_monitor import start_server, emit_frames, emit_done
+    Cell (server):    from bin.gan_monitor import start_server, emit_frames, emit_done, emit_benchmark_start, emit_strategy_start, emit_strategy_end
                       if LIVE_MONITOR: start_server(port=8765)
-    Cell (training):  if LIVE_MONITOR: emit_frames(images, labels, step, g_loss, d_loss)
-    Cell (after):     if LIVE_MONITOR: emit_done()
+    
+    Benchmark flow:
+        emit_benchmark_start(strategies, num_steps)  # at benchmark start
+        for strategy in strategies:
+            emit_strategy_start(strategy_name, strategy_index, total_strategies)
+            for step in training:
+                emit_frames(images, labels, step, g_loss, d_loss)
+            emit_strategy_end(strategy_name, fid, kid_mean, kid_std, training_time)
+        emit_done()  # all complete
 """
 
 import asyncio
@@ -82,8 +89,48 @@ def start_server(host="0.0.0.0", port=8765):
     print(f"[gan_monitor] Live monitor at http://localhost:{port}")
 
 
-# --- Emit helpers ---
-def emit_frames(images, labels, step, g_loss, d_loss):
+def _emit(event, payload):
+    """Helper to emit events from sync code."""
+    if _loop is not None and _loop.is_running():
+        future = asyncio.run_coroutine_threadsafe(_sio_async.emit(event, payload), _loop)
+        future.result(timeout=2)
+
+
+# --- Benchmark lifecycle events ---
+def emit_benchmark_start(strategies, num_steps):
+    """Signal the start of a benchmark run."""
+    _emit("benchmark_start", {
+        "strategies": strategies,
+        "num_steps": num_steps,
+        "total_strategies": len(strategies),
+    })
+    print(f"[gan_monitor] Benchmark started: {strategies}")
+
+
+def emit_strategy_start(strategy_name, strategy_index, total_strategies):
+    """Signal the start of training for a specific strategy."""
+    _emit("strategy_start", {
+        "strategy": strategy_name,
+        "index": strategy_index,
+        "total": total_strategies,
+    })
+    print(f"[gan_monitor] Strategy started: {strategy_name} ({strategy_index + 1}/{total_strategies})")
+
+
+def emit_strategy_end(strategy_name, fid, kid_mean, kid_std, training_time):
+    """Signal the end of training for a specific strategy with results."""
+    _emit("strategy_end", {
+        "strategy": strategy_name,
+        "fid": round(fid, 2),
+        "kid_mean": round(kid_mean, 4),
+        "kid_std": round(kid_std, 4),
+        "training_time": round(training_time, 1),
+    })
+    print(f"[gan_monitor] Strategy complete: {strategy_name} (FID: {fid:.2f})")
+
+
+# --- Frame emission ---
+def emit_frames(images, labels, step, g_loss, d_loss, num_steps=None):
     """
     Send generated images to all connected browsers.
 
@@ -93,6 +140,7 @@ def emit_frames(images, labels, step, g_loss, d_loss):
         step:   Current training step (int)
         g_loss: Generator loss (float)
         d_loss: Discriminator loss (float)
+        num_steps: Total steps (optional, for progress calculation)
     """
     frames = []
     for i in range(images.shape[0]):
@@ -110,16 +158,15 @@ def emit_frames(images, labels, step, g_loss, d_loss):
         "d_loss": round(d_loss, 4),
         "frames": frames,
     }
+    
+    if num_steps is not None:
+        payload["num_steps"] = num_steps
+        payload["progress"] = round(step / num_steps * 100, 1)
 
-    # Bridge sync caller -> async Socket.IO server
-    if _loop is not None and _loop.is_running():
-        future = asyncio.run_coroutine_threadsafe(_sio_async.emit("batch", payload), _loop)
-        future.result(timeout=2)
+    _emit("batch", payload)
 
 
 def emit_done():
-    """Signal that training has completed. Stops the timer in connected browsers."""
-    if _loop is not None and _loop.is_running():
-        future = asyncio.run_coroutine_threadsafe(_sio_async.emit("done", {}), _loop)
-        future.result(timeout=2)
-    print("[gan_monitor] Training complete signal sent")
+    """Signal that all training has completed."""
+    _emit("done", {})
+    print("[gan_monitor] Benchmark complete signal sent")
