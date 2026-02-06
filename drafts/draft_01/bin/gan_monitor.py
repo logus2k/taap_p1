@@ -10,7 +10,6 @@ Usage from notebook:
 """
 
 import asyncio
-import io
 import threading
 
 import socketio
@@ -95,18 +94,14 @@ def emit_frames(images, labels, step, g_loss, d_loss):
         g_loss: Generator loss (float)
         d_loss: Discriminator loss (float)
     """
-    from PIL import Image
-
     frames = []
     for i in range(images.shape[0]):
-        # [-1, 1] -> [0, 255]
+        # [-1, 1] -> [0, 255] as raw bytes (784 bytes for 28x28)
         img_np = ((images[i, 0].detach().cpu().float() + 1) / 2 * 255).clamp(0, 255).byte().numpy()
-        buf = io.BytesIO()
-        Image.fromarray(img_np, mode="L").save(buf, format="JPEG", quality=85)
         frames.append({
             "index": i,
             "label": int(labels[i].item()),
-            "image": buf.getvalue(),
+            "image": img_np.tobytes(),
         })
 
     payload = {

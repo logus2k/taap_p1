@@ -164,10 +164,9 @@
 
   .image-cell.fresh { border-color: var(--accent-blue); }
 
-  .image-cell img {
+  .image-cell canvas {
     width: 100%;
     height: 100%;
-    object-fit: contain;
     image-rendering: pixelated;
     display: block;
   }
@@ -278,7 +277,13 @@
 </div>
 
 <script>
-const socket = io({ transports: ["websocket"] });
+const isProxied = window.location.pathname.startsWith("/gan");
+const socketPath = isProxied ? "/gan/socket.io" : "/socket.io";
+
+const socket = io({
+  path: socketPath,
+  transports: ["websocket"]
+});
 
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
@@ -418,14 +423,18 @@ function ensureGrid(count) {
     const cell = document.createElement("div");
     cell.className = "image-cell";
 
-    const img = document.createElement("img");
+    const canvas = document.createElement("canvas");
+    canvas.width = 28;
+    canvas.height = 28;
+    const ctx = canvas.getContext("2d");
+
     const label = document.createElement("span");
     label.className = "cell-label";
 
-    cell.appendChild(img);
+    cell.appendChild(canvas);
     cell.appendChild(label);
     grid.appendChild(cell);
-    cells.push({ el: cell, img, label });
+    cells.push({ el: cell, canvas, ctx, label });
   }
 
   gridContent.innerHTML = "";
@@ -456,12 +465,20 @@ socket.on("batch", (data) => {
     const cell = cells[index];
     if (!cell) return;
 
-    const blob = new Blob([image], { type: "image/jpeg" });
-    const url = URL.createObjectURL(blob);
+    /* image is an ArrayBuffer of 784 grayscale bytes (28x28) */
+    const gray = new Uint8Array(image);
+    const rgba = new Uint8ClampedArray(28 * 28 * 4);
 
-    if (cell.img._prevUrl) URL.revokeObjectURL(cell.img._prevUrl);
-    cell.img.src = url;
-    cell.img._prevUrl = url;
+    for (let i = 0; i < 784; i++) {
+      const v = gray[i];
+      rgba[i * 4 + 0] = v;  /* R */
+      rgba[i * 4 + 1] = v;  /* G */
+      rgba[i * 4 + 2] = v;  /* B */
+      rgba[i * 4 + 3] = 255; /* A */
+    }
+
+    const imgData = new ImageData(rgba, 28, 28);
+    cell.ctx.putImageData(imgData, 0, 0);
 
     cell.label.textContent = label;
 
