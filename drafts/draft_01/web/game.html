@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Human vs GAN — Adversarial Challenge</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #242836;
+    --border: #2e3344;
+    --text: #e4e4e7;
+    --text-dim: #71717a;
+    
+    --human-color: #f472b6;
+    --human-dim: #be185d;
+    --human-bg: rgba(244, 114, 182, 0.1);
+    
+    --gen-color: #60a5fa;
+    --gen-dim: #1d4ed8;
+    --gen-bg: rgba(96, 165, 250, 0.1);
+    
+    --accent: #a78bfa;
+    --win: #4ade80;
+    --lose: #f87171;
+    --tie: #fbbf24;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .container {
+    max-width: 1150px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+
+  header h1 .human { color: var(--human-color); }
+  header h1 .gen { color: var(--gen-color); }
+  header h1 .vs { color: var(--text-dim); font-weight: 500; }
+
+  .subtitle {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+  }
+
+  /* Tug of War Section */
+  .tug-of-war {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+
+  .tug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .tug-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+
+  .tug-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .tug-score.human { color: var(--human-color); }
+  .tug-score.gen { color: var(--gen-color); }
+
+  .tug-bar-container {
+    position: relative;
+    height: 32px;
+    background: var(--surface-2);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .tug-bar-center {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background: var(--border);
+    transform: translateX(-50%);
+    z-index: 2;
+  }
+
+  .tug-bar-fill {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .tug-bar-fill.human {
+    left: 0;
+    background: linear-gradient(90deg, var(--human-color), var(--human-dim));
+    border-radius: 16px 0 0 16px;
+  }
+
+  .tug-bar-fill.gen {
+    right: 0;
+    background: linear-gradient(90deg, var(--gen-dim), var(--gen-color));
+    border-radius: 0 16px 16px 0;
+  }
+
+  .tug-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    background: var(--text);
+    border-radius: 50%;
+    z-index: 3;
+    transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .tug-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  /* Score Cards */
+  .score-section {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 32px;
+    text-align: center;
+    min-width: 140px;
+  }
+
+  .score-card.human { border-color: var(--human-dim); background: var(--human-bg); }
+  .score-card.gen { border-color: var(--gen-dim); background: var(--gen-bg); }
+
+  .score-card .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .score-card .wins {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .score-card.human .wins { color: var(--human-color); }
+  .score-card.gen .wins { color: var(--gen-color); }
+
+  .round-indicator {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    text-align: center;
+  }
+
+  .round-indicator .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .round-indicator .round {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  /* Digit Selector */
+  .digit-selector {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+  }
+
+  .digit-selector-header {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .digit-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .digit-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    cursor: default;
+    transition: all 0.15s;
+  }
+
+  .digit-btn.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
+  }
+
+  /* Game Area */
+  .game-area {
+    display: grid;
+    grid-template-columns: 1fr 140px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Player Panels */
+  .player-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .player-panel.human { border-color: var(--human-dim); }
+  .player-panel.gen { border-color: var(--gen-dim); }
+
+  .player-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .player-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+
+  .human .player-icon { background: var(--human-bg); }
+  .gen .player-icon { background: var(--gen-bg); }
+
+  .player-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .human .player-title { color: var(--human-color); }
+  .gen .player-title { color: var(--gen-color); }
+
+  /* Canvas */
+  .canvas-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 16px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  #drawCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 280px;
+    background: #000;
+    cursor: crosshair;
+    touch-action: none;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+  }
+
+  #previewCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 280px;
+    background: #000;
+    border-radius: 10px;
+    image-rendering: pixelated;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  #gridCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 280px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .mnist-view #previewCanvas,
+  .mnist-view #gridCanvas {
+    opacity: 1;
+  }
+
+  .mnist-view #drawCanvas {
+    opacity: 0;
+  }
+
+  #drawCanvas.active {
+    border-style: solid;
+    border-color: var(--human-color);
+  }
+
+  /* Preview toggle */
+  .preview-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .preview-toggle input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .preview-toggle:hover {
+    color: var(--text);
+  }
+
+  .gen-canvas-container {
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 16px;
+    border: 2px solid var(--gen-dim);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #genCanvas {
+    width: 280px;
+    height: 280px;
+    image-rendering: pixelated;
+  }
+
+  .canvas-label {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  /* Discriminator Score */
+  .d-score {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  .d-score-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .d-score-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .d-score-value.waiting {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .human .d-score-value { color: var(--human-color); }
+  .gen .d-score-value { color: var(--gen-color); }
+
+  /* VS Section */
+  .vs-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 60px;
+  }
+
+  .vs-divider {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+  }
+
+  .action-btn {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 10px;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-judge {
+    background: linear-gradient(135deg, var(--win), #22c55e);
+    color: var(--bg);
+  }
+
+  .btn-clear {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-clear:hover:not(:disabled) {
+    border-color: var(--text-dim);
+  }
+
+  .btn-next {
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    color: white;
+  }
+
+  /* Result Overlay */
+  .result-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .result-overlay.show {
+    display: flex;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 48px;
+    text-align: center;
+    max-width: 400px;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .result-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+
+  .result-badge.win { background: rgba(74, 222, 128, 0.2); color: var(--win); }
+  .result-badge.lose { background: rgba(248, 113, 113, 0.2); color: var(--lose); }
+  .result-badge.tie { background: rgba(251, 191, 36, 0.2); color: var(--tie); }
+
+  .result-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .result-margin {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+
+  .result-margin span.positive { color: var(--win); }
+  .result-margin span.negative { color: var(--lose); }
+
+  .result-scores {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 24px;
+  }
+
+  .result-score-item {
+    text-align: center;
+  }
+
+  .result-score-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .result-score-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .result-score-value.human { color: var(--human-color); }
+  .result-score-value.gen { color: var(--gen-color); }
+
+  .result-btn {
+    padding: 12px 32px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--accent);
+    color: white;
+    transition: all 0.15s;
+  }
+
+  .result-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Connection Status */
+  .connection {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .connection-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--lose);
+  }
+
+  .connection-dot.connected {
+    background: var(--win);
+  }
+
+  /* Waiting animation */
+  .waiting-dots::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+
+  @keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span class="human">Human</span> <span class="vs">vs</span> <span class="gen">Generator</span></h1>
+    <p class="subtitle">Draw a digit. Fool the Discriminator. Beat the GAN.</p>
+  </header>
+
+  <!-- Tug of War -->
+  <div class="tug-of-war">
+    <div class="tug-header">
+      <span class="tug-score human" id="tugHumanScore">0.0</span>
+      <span class="tug-label">Cumulative Advantage</span>
+      <span class="tug-score gen" id="tugGenScore">0.0</span>
+    </div>
+    <div class="tug-bar-container">
+      <div class="tug-bar-fill human" id="tugBarHuman" style="width: 50%;"></div>
+      <div class="tug-bar-fill gen" id="tugBarGen" style="width: 50%;"></div>
+      <div class="tug-bar-center"></div>
+      <div class="tug-indicator" id="tugIndicator" style="left: 50%;"></div>
+    </div>
+    <div class="tug-labels">
+      <span>Human Leads</span>
+      <span>Balanced</span>
+      <span>GAN Leads</span>
+    </div>
+  </div>
+
+  <!-- Score Section -->
+  <div class="score-section">
+    <div class="score-card human">
+      <div class="label">Human Wins</div>
+      <div class="wins" id="humanWins">0</div>
+    </div>
+    <div class="round-indicator">
+      <div class="label">Round</div>
+      <div class="round" id="roundDisplay">1 / 5</div>
+    </div>
+    <div class="score-card gen">
+      <div class="label">GAN Wins</div>
+      <div class="wins" id="genWins">0</div>
+    </div>
+  </div>
+
+  <!-- Digit Selector -->
+  <div class="digit-selector">
+    <div class="digit-selector-header">Target Digit (randomly selected)</div>
+    <div class="digit-buttons" id="digitButtons"></div>
+  </div>
+
+  <!-- Game Area -->
+  <div class="game-area">
+    <!-- Human Panel -->
+    <div class="player-panel human">
+      <div class="player-header">
+        <div class="player-icon">✎</div>
+        <div class="player-title">Your Drawing</div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="drawCanvas" width="280" height="280"></canvas>
+        <canvas id="previewCanvas" width="280" height="280"></canvas>
+        <canvas id="gridCanvas" width="280" height="280"></canvas>
+      </div>
+      <div class="canvas-label">Draw the selected digit</div>
+      <div class="d-score">
+        <div class="d-score-label">Discriminator Score</div>
+        <div class="d-score-value waiting" id="humanScoreDisplay">—</div>
+      </div>
+    </div>
+
+    <!-- VS Section -->
+    <div class="vs-section">
+      <div class="vs-divider">VS</div>
+      <button class="action-btn btn-judge" id="judgeBtn" disabled>Judge</button>
+      <button class="action-btn btn-clear" id="clearBtn">Clear</button>
+      <button class="action-btn btn-next" id="nextBtn" style="display: none;">Next</button>
+      <label class="preview-toggle">
+        <input type="checkbox" id="mnistViewToggle">
+        <span>MNIST View</span>
+      </label>
+    </div>
+
+    <!-- Generator Panel -->
+    <div class="player-panel gen">
+      <div class="player-header">
+        <div class="player-icon">⚡</div>
+        <div class="player-title">Generator Output</div>
+      </div>
+      <div class="gen-canvas-container">
+        <canvas id="genCanvas" width="280" height="280"></canvas>
+      </div>
+      <div class="canvas-label">AI-generated digit</div>
+      <div class="d-score">
+        <div class="d-score-label">Discriminator Score</div>
+        <div class="d-score-value waiting" id="genScoreDisplay">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-card">
+    <div class="result-badge" id="resultBadge">Victory</div>
+    <div class="result-title" id="resultTitle">You Win!</div>
+    <div class="result-margin" id="resultMargin">Margin: <span class="positive">+12.4%</span></div>
+    <div class="result-scores">
+      <div class="result-score-item">
+        <div class="result-score-label">Your Score</div>
+        <div class="result-score-value human" id="resultHumanScore">85.2%</div>
+      </div>
+      <div class="result-score-item">
+        <div class="result-score-label">GAN Score</div>
+        <div class="result-score-value gen" id="resultGenScore">72.8%</div>
+      </div>
+    </div>
+    <button class="result-btn" id="resultNextBtn">Continue</button>
+  </div>
+</div>
+
+<!-- Connection Status -->
+<div class="connection">
+  <div class="connection-dot" id="connDot"></div>
+  <span id="connText">Connecting</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+// ============================================
+// CONFIG
+// ============================================
+const CONFIG = {
+  totalRounds: 5,
+  strokeWidth: 12,
+};
+
+// ============================================
+// STATE
+// ============================================
+let state = {
+  round: 1,
+  digit: null,
+  humanWins: 0,
+  genWins: 0,
+  humanTotal: 0,
+  genTotal: 0,
+  hasDrawn: false,
+  judging: false,
+};
+
+// ============================================
+// SOCKET
+// ============================================
+const socket = io({
+  path: window.location.pathname.startsWith("/gan_game") ? "/gan_game/socket.io" : "/socket.io",
+  transports: ["websocket"]
+});
+
+socket.on("connect", () => {
+  document.getElementById("connDot").classList.add("connected");
+  document.getElementById("connText").textContent = "Connected";
+  // Start first round when connected
+  startNewRound();
+});
+
+socket.on("disconnect", () => {
+  document.getElementById("connDot").classList.remove("connected");
+  document.getElementById("connText").textContent = "Disconnected";
+});
+
+socket.on("round_ready", (data) => {
+  // Generator has produced its digit - display it
+  displayGenImage(data.gen_image);
+  document.getElementById("genScoreDisplay").textContent = "Ready";
+  document.getElementById("genScoreDisplay").classList.add("waiting");
+});
+
+socket.on("game_result", (data) => {
+  showResult(data.human_score, data.gen_score);
+});
+
+// ============================================
+// CANVAS
+// ============================================
+const canvas = document.getElementById("drawCanvas");
+const ctx = canvas.getContext("2d");
+ctx.lineWidth = CONFIG.strokeWidth;
+ctx.lineCap = "round";
+ctx.lineJoin = "round";
+ctx.strokeStyle = "#fff";
+
+// Preview canvas (shows MNIST-like preprocessed image)
+const previewCanvas = document.getElementById("previewCanvas");
+const previewCtx = previewCanvas.getContext("2d");
+
+// Grid overlay canvas
+const gridCanvas = document.getElementById("gridCanvas");
+const gridCtx = gridCanvas.getContext("2d");
+
+// Draw the 28x28 grid
+function drawGrid() {
+  const cell = 280 / 28;  // 10px cells
+  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+  gridCtx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  gridCtx.lineWidth = 1;
+  
+  for (let i = 0; i <= 28; i++) {
+    const pos = i * cell;
+    gridCtx.beginPath();
+    gridCtx.moveTo(pos, 0);
+    gridCtx.lineTo(pos, 280);
+    gridCtx.stroke();
+    gridCtx.beginPath();
+    gridCtx.moveTo(0, pos);
+    gridCtx.lineTo(280, pos);
+    gridCtx.stroke();
+  }
+}
+drawGrid();
+
+// MNIST view toggle
+const mnistViewToggle = document.getElementById("mnistViewToggle");
+const canvasContainer = document.querySelector(".canvas-container");
+
+mnistViewToggle.addEventListener("change", (e) => {
+  if (e.target.checked) {
+    canvasContainer.classList.add("mnist-view");
+    updatePreview();
+  } else {
+    canvasContainer.classList.remove("mnist-view");
+  }
+});
+
+// Update preview canvas with MNIST-like rendering
+function updatePreview() {
+  if (!mnistViewToggle.checked) return;
+  
+  const processed = preprocess();
+  
+  // Draw the 28x28 image scaled up to 280x280
+  previewCtx.clearRect(0, 0, 280, 280);
+  
+  const imgData = previewCtx.createImageData(280, 280);
+  for (let y = 0; y < 28; y++) {
+    for (let x = 0; x < 28; x++) {
+      const val = Math.round(processed[y * 28 + x] * 255);
+      // Scale up 10x
+      for (let dy = 0; dy < 10; dy++) {
+        for (let dx = 0; dx < 10; dx++) {
+          const idx = ((y * 10 + dy) * 280 + (x * 10 + dx)) * 4;
+          imgData.data[idx] = val;
+          imgData.data[idx + 1] = val;
+          imgData.data[idx + 2] = val;
+          imgData.data[idx + 3] = 255;
+        }
+      }
+    }
+  }
+  previewCtx.putImageData(imgData, 0, 0);
+}
+
+// Show raw drawing without MNIST centering (used during active drawing)
+function updatePreviewRaw() {
+  previewCtx.clearRect(0, 0, 280, 280);
+  previewCtx.drawImage(canvas, 0, 0);
+}
+
+let drawing = false;
+let lastX = 0;
+let lastY = 0;
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const touch = e.touches?.[0];
+  return {
+    x: ((touch?.clientX ?? e.clientX) - rect.left) * scaleX,
+    y: ((touch?.clientY ?? e.clientY) - rect.top) * scaleY
+  };
+}
+
+function startDraw(e) {
+  if (state.judging) return;
+  drawing = true;
+  const p = getPos(e);
+  lastX = p.x;
+  lastY = p.y;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+}
+
+function endDraw() {
+  drawing = false;
+  if (state.hasDrawn) {
+    canvas.classList.add("active");
+    document.getElementById("judgeBtn").disabled = false;
+    // Show MNIST-preprocessed view on release
+    updatePreview();
+  }
+}
+
+function draw(e) {
+  if (!drawing || state.judging) return;
+  const p = getPos(e);
+  
+  // Interpolate for smoother strokes (MNIST-like)
+  const dx = p.x - lastX;
+  const dy = p.y - lastY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  
+  if (dist > 5) {
+    const steps = Math.ceil(dist / 5);
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+    
+    for (let i = 1; i <= steps; i++) {
+      ctx.lineTo(lastX + stepX * i, lastY + stepY * i);
+    }
+  } else {
+    ctx.lineTo(p.x, p.y);
+  }
+  
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  
+  lastX = p.x;
+  lastY = p.y;
+  state.hasDrawn = true;
+  
+  // During drawing: show raw strokes (not centered) for better UX
+  if (mnistViewToggle.checked) {
+    updatePreviewRaw();
+  }
+}
+
+canvas.addEventListener("mousedown", startDraw);
+canvas.addEventListener("mouseup", endDraw);
+canvas.addEventListener("mouseleave", endDraw);
+canvas.addEventListener("mousemove", draw);
+canvas.addEventListener("touchstart", (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
+canvas.addEventListener("touchend", (e) => { e.preventDefault(); endDraw(); }, { passive: false });
+canvas.addEventListener("touchcancel", (e) => { e.preventDefault(); endDraw(); }, { passive: false });
+canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); }, { passive: false });
+
+// ============================================
+// DIGIT SELECTOR (display only - auto-selected each round)
+// ============================================
+const digitContainer = document.getElementById("digitButtons");
+for (let i = 0; i <= 9; i++) {
+  const btn = document.createElement("button");
+  btn.className = "digit-btn";
+  btn.textContent = i;
+  btn.disabled = true;  // Display only
+  digitContainer.appendChild(btn);
+}
+
+// ============================================
+// PREPROCESSING
+// ============================================
+function preprocess() {
+  // Apply slight blur for MNIST-like soft edges
+  const blurCanvas = document.createElement("canvas");
+  blurCanvas.width = canvas.width;
+  blurCanvas.height = canvas.height;
+  const blurCtx = blurCanvas.getContext("2d");
+  blurCtx.filter = "blur(1px)";
+  blurCtx.drawImage(canvas, 0, 0);
+  
+  const imageData = blurCtx.getImageData(0, 0, blurCanvas.width, blurCanvas.height);
+  const data = imageData.data;
+  
+  let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+  let sumI = 0;
+  
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const idx = (y * canvas.width + x) * 4;
+      const intensity = data[idx];
+      if (intensity > 10) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+        sumI += intensity;
+      }
+    }
+  }
+  
+  if (minX > maxX || sumI === 0) return new Float32Array(784);
+  
+  const bw = maxX - minX + 1;
+  const bh = maxY - minY + 1;
+  
+  const tmp = document.createElement("canvas");
+  tmp.width = 28;
+  tmp.height = 28;
+  const tctx = tmp.getContext("2d");
+  tctx.imageSmoothingEnabled = true;
+  tctx.imageSmoothingQuality = "high";
+  
+  const scale = Math.min(20 / bw, 20 / bh);
+  const sw = bw * scale;
+  const sh = bh * scale;
+  const ox = (28 - sw) / 2;
+  const oy = (28 - sh) / 2;
+  
+  tctx.drawImage(blurCanvas, minX, minY, bw, bh, ox, oy, sw, sh);
+  
+  const img = tctx.getImageData(0, 0, 28, 28);
+  const out = new Float32Array(784);
+  for (let i = 0; i < 784; i++) out[i] = img.data[i * 4] / 255;
+  return out;
+}
+
+// ============================================
+// GENERATOR DISPLAY
+// ============================================
+const genCanvas = document.getElementById("genCanvas");
+const genCtx = genCanvas.getContext("2d");
+
+function displayGenImage(imageData) {
+  // imageData is ArrayBuffer (784 bytes) - convert to Uint8Array
+  const bytes = new Uint8Array(imageData);
+  const img = genCtx.createImageData(280, 280);
+  
+  for (let y = 0; y < 28; y++) {
+    for (let x = 0; x < 28; x++) {
+      const v = bytes[y * 28 + x];
+      // Scale up 10x
+      for (let dy = 0; dy < 10; dy++) {
+        for (let dx = 0; dx < 10; dx++) {
+          const idx = ((y * 10 + dy) * 280 + (x * 10 + dx)) * 4;
+          img.data[idx] = v;
+          img.data[idx + 1] = v;
+          img.data[idx + 2] = v;
+          img.data[idx + 3] = 255;
+        }
+      }
+    }
+  }
+  genCtx.putImageData(img, 0, 0);
+}
+
+// ============================================
+// TUG OF WAR
+// ============================================
+function updateTugOfWar() {
+  const total = state.humanTotal + state.genTotal;
+  if (total === 0) return;
+  
+  const humanPct = (state.humanTotal / total) * 100;
+  const genPct = (state.genTotal / total) * 100;
+  
+  document.getElementById("tugBarHuman").style.width = humanPct + "%";
+  document.getElementById("tugBarGen").style.width = genPct + "%";
+  document.getElementById("tugIndicator").style.left = humanPct + "%";
+  
+  const diff = state.humanTotal - state.genTotal;
+  document.getElementById("tugHumanScore").textContent = diff > 0 ? "+" + diff.toFixed(1) : "0.0";
+  document.getElementById("tugGenScore").textContent = diff < 0 ? "+" + Math.abs(diff).toFixed(1) : "0.0";
+}
+
+// ============================================
+// RESULT
+// ============================================
+function showResult(humanScore, genScore) {
+  state.judging = false;
+  
+  const hPct = humanScore * 100;
+  const gPct = genScore * 100;
+  const margin = hPct - gPct;
+  
+  // Update totals
+  state.humanTotal += hPct;
+  state.genTotal += gPct;
+  
+  // Display scores
+  document.getElementById("humanScoreDisplay").textContent = hPct.toFixed(1) + "%";
+  document.getElementById("humanScoreDisplay").classList.remove("waiting");
+  document.getElementById("genScoreDisplay").textContent = gPct.toFixed(1) + "%";
+  document.getElementById("genScoreDisplay").classList.remove("waiting");
+  
+  // Result overlay
+  const badge = document.getElementById("resultBadge");
+  const title = document.getElementById("resultTitle");
+  const marginEl = document.getElementById("resultMargin");
+  
+  document.getElementById("resultHumanScore").textContent = hPct.toFixed(1) + "%";
+  document.getElementById("resultGenScore").textContent = gPct.toFixed(1) + "%";
+  
+  if (margin > 1) {
+    state.humanWins++;
+    badge.className = "result-badge win";
+    badge.textContent = "Victory";
+    title.textContent = "You Win!";
+    marginEl.innerHTML = `Margin: <span class="positive">+${margin.toFixed(1)}%</span>`;
+  } else if (margin < -1) {
+    state.genWins++;
+    badge.className = "result-badge lose";
+    badge.textContent = "Defeat";
+    title.textContent = "GAN Wins";
+    marginEl.innerHTML = `Margin: <span class="negative">${margin.toFixed(1)}%</span>`;
+  } else {
+    badge.className = "result-badge tie";
+    badge.textContent = "Draw";
+    title.textContent = "It's a Tie";
+    marginEl.innerHTML = `Margin: <span>${margin.toFixed(1)}%</span>`;
+  }
+  
+  // Update UI
+  document.getElementById("humanWins").textContent = state.humanWins;
+  document.getElementById("genWins").textContent = state.genWins;
+  updateTugOfWar();
+  
+  // Check game over
+  if (state.round >= CONFIG.totalRounds) {
+    document.getElementById("resultNextBtn").textContent = "Play Again";
+  }
+  
+  document.getElementById("resultOverlay").classList.add("show");
+}
+
+// ============================================
+// ROUND MANAGEMENT
+// ============================================
+function startNewRound() {
+  // Pick random digit
+  state.digit = Math.floor(Math.random() * 10);
+  
+  // Update digit buttons to show selected
+  document.querySelectorAll(".digit-btn").forEach((b, i) => b.classList.toggle("selected", i === state.digit));
+  
+  // Clear canvases
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  genCtx.clearRect(0, 0, genCanvas.width, genCanvas.height);
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  
+  // Reset state
+  state.hasDrawn = false;
+  state.judging = false;
+  canvas.classList.remove("active");
+  
+  // Reset UI
+  document.getElementById("judgeBtn").disabled = true;
+  document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+  document.getElementById("humanScoreDisplay").classList.add("waiting");
+  document.getElementById("genScoreDisplay").textContent = "Generating...";
+  document.getElementById("genScoreDisplay").classList.add("waiting");
+  
+  // Request generator to produce digit
+  socket.emit("start_round", { digit: state.digit });
+}
+
+function nextRound() {
+  document.getElementById("resultOverlay").classList.remove("show");
+  
+  if (state.round >= CONFIG.totalRounds) {
+    resetGame();
+    return;
+  }
+  
+  state.round++;
+  document.getElementById("roundDisplay").textContent = `${state.round} / ${CONFIG.totalRounds}`;
+  startNewRound();
+}
+
+function resetRound() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  genCtx.clearRect(0, 0, genCanvas.width, genCanvas.height);
+  
+  state.hasDrawn = false;
+  
+  canvas.classList.remove("active");
+  document.getElementById("judgeBtn").disabled = true;
+  document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+  document.getElementById("humanScoreDisplay").classList.add("waiting");
+  document.getElementById("genScoreDisplay").textContent = "Ready";
+  document.getElementById("genScoreDisplay").classList.add("waiting");
+}
+
+function resetGame() {
+  state = {
+    round: 1,
+    digit: null,
+    humanWins: 0,
+    genWins: 0,
+    humanTotal: 0,
+    genTotal: 0,
+    hasDrawn: false,
+    judging: false,
+  };
+  
+  document.getElementById("roundDisplay").textContent = `1 / ${CONFIG.totalRounds}`;
+  document.getElementById("humanWins").textContent = "0";
+  document.getElementById("genWins").textContent = "0";
+  document.getElementById("tugHumanScore").textContent = "0.0";
+  document.getElementById("tugGenScore").textContent = "0.0";
+  document.getElementById("tugBarHuman").style.width = "50%";
+  document.getElementById("tugBarGen").style.width = "50%";
+  document.getElementById("tugIndicator").style.left = "50%";
+  document.getElementById("resultNextBtn").textContent = "Continue";
+  
+  startNewRound();
+}
+
+// ============================================
+// BUTTONS
+// ============================================
+document.getElementById("judgeBtn").onclick = () => {
+  if (state.digit === null || !state.hasDrawn || state.judging) return;
+  
+  state.judging = true;
+  document.getElementById("judgeBtn").disabled = true;
+  document.getElementById("humanScoreDisplay").innerHTML = '<span class="waiting-dots">Judging</span>';
+  
+  // Send drawing as binary Float32Array
+  const imageData = preprocess();
+  const buffer = imageData.buffer;
+  
+  socket.emit("judge_drawing", { image: buffer });
+};
+
+document.getElementById("clearBtn").onclick = () => {
+  if (!state.judging) resetRound();
+};
+
+document.getElementById("nextBtn").onclick = nextRound;
+document.getElementById("resultNextBtn").onclick = nextRound;
+</script>
+</body>
+</html>
