@@ -1,169 +1,110 @@
-# Human vs GAN — Adversarial Challenge
+# Conditional GAN Loss Strategy Comparison on MNIST
 
-A web-based game where humans compete against a Generative Adversarial Network (GAN) to draw MNIST-style digits. Both the human and the Generator create digits, and the Discriminator judges which looks more authentic.
+A comparative study of different loss functions for training conditional Generative Adversarial Networks on the MNIST dataset.
 
-![Tug of War](web/tug_of_war.png)
+**Course:** Advanced Topics in Deep Learning  
+**Topic:** Generative Adversarial Networks (GANs)
 
 ## Overview
 
-This project demonstrates GAN concepts interactively:
+This project implements and benchmarks four GAN loss strategies to evaluate their impact on image generation quality:
 
-- **Generator**: A neural network trained to produce realistic handwritten digits
-- **Discriminator**: A neural network trained to distinguish real digits from generated ones
-- **Human Player**: You! Draw digits and try to fool the Discriminator
+- **BCE** — Binary Cross-Entropy (original GAN formulation)
+- **LSGAN** — Least Squares GAN
+- **Hinge** — Hinge loss (used in SAGAN, BigGAN)
+- **WGAN-GP** — Wasserstein GAN with Gradient Penalty
 
-Each round, a random digit (0-9) is selected. The Generator produces its version instantly, then you draw yours. The Discriminator scores both — highest score wins the round.
-
-## Features
-
-- Real-time digit drawing with MNIST-style preprocessing
-- Live Generator output display
-- Discriminator scoring for both human and AI drawings
-- MNIST View toggle to see exactly what the model sees
-- Cumulative score tracking across rounds
-- Support for multiple loss strategies (BCE, LSGAN, Hinge, WGAN-GP)
+All strategies use the same Generator and Discriminator architectures, training hyperparameters, and evaluation metrics, enabling fair comparison.
 
 ## Architecture
 
-### Models
+### Generator
+- **Input:** 100-dimensional latent vector + class embedding (10 classes)
+- **Upsampling:** PixelShuffle blocks with ICNR initialization
+- **Normalization:** BatchNorm with momentum 0.8
+- **Output:** 28×28 grayscale image (tanh activation)
 
-**Generator** (PixelShuffle + ICNR initialization):
-- Input: 100-dim latent vector + class embedding
-- Architecture: FC → PixelShuffle upsampling blocks → 28×28 output
-- Activation: Tanh (outputs in [-1, 1])
+### Discriminator
+- **Input:** 28×28 image concatenated with class embedding
+- **Regularization:** Spectral Normalization on all layers
+- **Architecture:** Convolutional blocks with LeakyReLU
+- **Output:** Probability score (sigmoid for BCE/LSGAN, linear for Hinge/WGAN-GP)
 
-**Discriminator** (Spectral Normalization):
-- Input: 28×28 image + class embedding
-- Architecture: Conv blocks with spectral normalization
-- Output: Probability score (0-1)
+### Training Techniques
+- **TTUR:** Two Time-Scale Update Rule (LR_D=4e-4, LR_G=1e-4)
+- **Label Smoothing:** 0.9 for real labels (BCE/LSGAN only)
+- **Gradient Penalty:** λ=10 (WGAN-GP only)
+- **Critic Steps:** 5 per generator step (WGAN-GP only)
 
-### Training Improvements
+## Evaluation Metrics
 
-- TTUR (Two Time-Scale Update Rule): LR_D = 4e-4, LR_G = 1e-4
-- Label smoothing (0.9 for real labels)
-- Spectral normalization on Discriminator
-- ICNR initialization for PixelShuffle layers
-
-## Installation
-
-### Requirements
-
-```
-torch>=2.0
-numpy
-socketio
-uvicorn
-fastapi
-```
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/human-vs-gan.git
-cd human-vs-gan
-```
-
-2. Install dependencies:
-```bash
-pip install torch numpy python-socketio uvicorn fastapi
-```
-
-3. Train models or use pre-trained weights:
-```bash
-# Models should be saved as:
-# model/G_bce.pt (Generator)
-# model/D_bce.pt (Discriminator)
-```
-
-## Usage
-
-### Running the Game Server
-
-```bash
-python bin/run_game.py
-```
-
-Options:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | 8993 | Server port |
-| `--host` | 0.0.0.0 | Server host |
-| `--model-dir` | ./model | Directory containing .pt files |
-| `--strategy` | bce | Loss strategy (bce/lsgan/hinge/wgan-gp) |
-| `--latent-dim` | 100 | Latent dimension (must match training) |
-| `--cpu` | False | Force CPU mode |
-
-Then open `http://localhost:8993` in your browser.
-
-### nginx Configuration (Optional)
-
-For production deployment behind nginx:
-
-```nginx
-location /gan_game/ {
-    proxy_pass http://localhost:8993/;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-}
-
-location /gan_game/socket.io/ {
-    proxy_pass http://localhost:8993/socket.io/;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-}
-```
+- **FID** (Fréchet Inception Distance) — measures distribution similarity
+- **KID** (Kernel Inception Distance) — unbiased alternative to FID
+- **Training Time** — wall-clock time comparison
 
 ## Project Structure
 
 ```
-human-vs-gan/
+├── draft_01_v3.ipynb      # Main notebook with training and evaluation
 ├── bin/
-│   └── run_game.py       # Standalone game server
+│   ├── gan_monitor.py     # Live training monitor server
+│   └── run_game.py        # Interactive game server
 ├── web/
-│   ├── game.html         # Game UI
-│   └── tug_of_war.png    # Header image
+│   ├── index.html         # Training monitor dashboard
+│   └── game.html          # Human vs GAN game interface
 ├── model/
-│   ├── G_bce.pt          # Generator weights
-│   └── D_bce.pt          # Discriminator weights
-├── README.md
-└── LICENSE
+│   ├── G_bce.pt           # Generator weights (per strategy)
+│   └── D_bce.pt           # Discriminator weights (per strategy)
+└── README.md
 ```
 
-## How It Works
+## Usage
 
-1. **Round Start**: Random digit selected, Generator produces its version
-2. **Drawing**: Human draws their interpretation of the digit
-3. **Preprocessing**: Human drawing is converted to MNIST format (28×28, centered, blurred)
-4. **Judging**: Discriminator scores both images (0-100%)
-5. **Result**: Higher score wins; ties within ±1%
+### Training & Benchmarking
 
-### MNIST Preprocessing
+Run the Jupyter notebook `draft_01_v3.ipynb` to:
+1. Train all four loss strategies
+2. Compute FID/KID metrics
+3. Generate comparison visualizations
+4. Save model checkpoints
 
-Human drawings are preprocessed to match MNIST format:
-- Bounding box detection
-- Scale to fit 20×20 region
-- Center in 28×28 canvas
-- Apply 1px blur for soft edges
-- Normalize to [0, 1]
+### Live Training Monitor (Optional)
 
-## Training Your Own Models
+Enable real-time monitoring by setting `LIVE_MONITOR = True` in the notebook, then open `http://localhost:8992` to view:
+- Loss curves (Generator and Discriminator)
+- Generated samples during training
+- Benchmark progress across strategies
 
-The game works with any conditional GAN trained on MNIST. See `notebook_cells.py` for training code supporting:
+### Interactive Demo (Optional)
 
-- **BCE**: Binary Cross-Entropy (original GAN)
-- **LSGAN**: Least Squares GAN
-- **Hinge**: Hinge loss (SAGAN/BigGAN style)
-- **WGAN-GP**: Wasserstein GAN with Gradient Penalty
+After training, run the game server to compare human drawings against the Generator:
+
+```bash
+python bin/run_game.py --strategy lsgan --port 8993
+```
+
+## Requirements
+
+```
+torch>=2.0
+torchvision
+torchmetrics
+numpy
+matplotlib
+python-socketio (optional, for live monitor)
+uvicorn (optional, for live monitor)
+fastapi (optional, for live monitor)
+```
+
+## Results
+
+The notebook produces:
+- FID/KID comparison bar charts
+- Loss curves for all strategies
+- Per-class generation quality analysis
+- Side-by-side sample comparisons
+- CSV export of benchmark results
 
 ## License
 
 Apache License 2.0
-
-## Acknowledgments
-
-- MNIST dataset by Yann LeCun et al.
-- GAN architecture inspired by DCGAN and modern best practices
-- Tug-of-war illustration concept for the adversarial game visualization
