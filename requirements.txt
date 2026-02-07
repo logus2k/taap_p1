@@ -2,4 +2,6 @@
 matplotlib
 torchmetrics[image]
 pydot
-
+python-socketio
+fastapi
+uvicorn
