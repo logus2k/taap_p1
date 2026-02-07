@@ -119,7 +119,9 @@ def export_markdown(nb, out_md, assets_dir: str, hide_code: bool):
 
 def markdown_to_docx(md_path, docx_path, template_path=None):
     """Convert Markdown to DOCX using pypandoc if available; else shell pandoc."""
-    extra_args = ["--standalone", "--resource-path=."]
+    md_path = Path(md_path)
+    resource_dir = str(md_path.parent)
+    extra_args = ["--standalone", f"--resource-path={resource_dir}"]
     if template_path:
         extra_args.append(f"--reference-doc={template_path}")
     
