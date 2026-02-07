@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Human vs GAN — Standalone Game Server
+Human vs GAN - Standalone Game Server
 
 Usage:
     python run_game.py
@@ -11,18 +11,19 @@ Then open http://localhost:8993 in your browser.
 """
 
 import argparse
-import asyncio
-import threading
+import random
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.utils import spectral_norm
+from torchvision import datasets, transforms
 import socketio
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 
 # ============================================
@@ -102,6 +103,25 @@ class Discriminator(nn.Module):
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 app = FastAPI()
+
+# Mount static files (fonts, images, scripts, etc.)
+def get_web_dir():
+    """Find the web/ directory."""
+    web_path = Path(__file__).parent / "web"
+    if not web_path.exists():
+        web_path = Path(__file__).parent.parent / "web"
+    return web_path
+
+web_dir = get_web_dir()
+if web_dir.exists():
+    # Mount subdirectories if they exist
+    for subdir in ["fonts", "images", "scripts", "styles", "libraries"]:
+        subdir_path = web_dir / subdir
+        if subdir_path.exists():
+            app.mount(f"/{subdir}", StaticFiles(directory=subdir_path), name=subdir)
+    # Also serve web/ root for any loose files
+    app.mount("/static", StaticFiles(directory=web_dir), name="static")
+
 asgi_app = socketio.ASGIApp(sio, app)
 
 # Global model references
@@ -109,6 +129,10 @@ g_model = None
 d_model = None
 device = None
 latent_dim = 100
+
+# MNIST dataset for "MNIST Digit" mode
+mnist_dataset = None
+digit_indices = None  # {0: [idx, idx, ...], 1: [...], ...}
 
 
 def load_html():
@@ -145,26 +169,42 @@ _player_state = {}
 @sio.event
 async def start_round(sid, data):
     """Generate digit for new round."""
-    global g_model, d_model, device, latent_dim
+    global g_model, d_model, device, latent_dim, mnist_dataset, digit_indices
     
-    if g_model is None:
-        print("[game] Error: Generator not loaded!")
-        return
+    print(f"[game] start_round received data: {data}")
     
     digit = int(data["digit"])
+    use_mnist = data.get("use_mnist", False)
+    
+    print(f"[game] use_mnist={use_mnist}, mnist_dataset={mnist_dataset is not None}, digit_indices={digit_indices is not None}")
     
     try:
-        label = torch.tensor([[digit]], device=device)
+        label = torch.tensor([[digit]], device=device)  # Shape: (1, 1) as used in training
         
-        with torch.no_grad():
-            z = torch.randn(1, latent_dim, device=device)
-            gen_tensor = g_model(z, label)
+        if use_mnist and mnist_dataset is not None and digit_indices is not None:
+            # Use real MNIST digit
+            idx = random.choice(digit_indices[digit])
+            img, _ = mnist_dataset[idx]
+            # img is already a tensor in [-1, 1] from transform
+            gen_tensor = img.unsqueeze(0).to(device)  # Shape: (1, 1, 28, 28)
+            source = "MNIST"
+        else:
+            # Use Generator
+            if g_model is None:
+                print("[game] Error: Generator not loaded!")
+                return
+            
+            with torch.no_grad():
+                z = torch.randn(1, latent_dim, device=device)
+                gen_tensor = g_model(z, label)
+            source = "Generator"
         
         # Store for later scoring
         _player_state[sid] = {
             "digit": digit,
             "gen_tensor": gen_tensor,
             "label": label,
+            "source": source,
         }
         
         # Convert to binary for client
@@ -174,7 +214,7 @@ async def start_round(sid, data):
             "gen_image": bytes(gen_image_np.flatten()),
         }, to=sid)
         
-        print(f"[game] Round started: digit {digit}")
+        print(f"[game] Round started: digit {digit} ({source})")
         
     except Exception as e:
         print(f"[game] Error generating: {e}")
@@ -212,23 +252,32 @@ async def judge_drawing(sid, data):
         human_tensor = torch.from_numpy(human_image.copy()).to(device)
         human_tensor = human_tensor * 2 - 1
         
+        # Debug: check tensor stats
+        print(f"[game] Human tensor - min: {human_tensor.min():.3f}, max: {human_tensor.max():.3f}, mean: {human_tensor.mean():.3f}")
+        print(f"[game] Gen tensor   - min: {gen_tensor.min():.3f}, max: {gen_tensor.max():.3f}, mean: {gen_tensor.mean():.3f}")
+        
         # Score both images
         with torch.no_grad():
-            human_score = d_model(human_tensor, label)
-            gen_score = d_model(gen_tensor, label)
+            human_score_raw = d_model(human_tensor, label)
+            gen_score_raw = d_model(gen_tensor, label)
             
-            # Apply sigmoid if needed
-            if human_score.min() < 0 or human_score.max() > 1:
-                human_score = torch.sigmoid(human_score)
-            if gen_score.min() < 0 or gen_score.max() > 1:
-                gen_score = torch.sigmoid(gen_score)
+            print(f"[game] Raw scores - Human: {human_score_raw.item():.4f}, GAN: {gen_score_raw.item():.4f}")
+            
+            # Apply sigmoid if needed (for non-BCE strategies where model doesn't apply sigmoid)
+            if human_score_raw.min() < 0 or human_score_raw.max() > 1:
+                human_score = torch.sigmoid(human_score_raw)
+                gen_score = torch.sigmoid(gen_score_raw)
+                print(f"[game] After sigmoid - Human: {human_score.item():.4f}, GAN: {gen_score.item():.4f}")
+            else:
+                human_score = human_score_raw
+                gen_score = gen_score_raw
         
         await sio.emit("game_result", {
             "human_score": float(human_score.item()),
             "gen_score": float(gen_score.item()),
         }, to=sid)
         
-        print(f"[game] Digit {state['digit']}: Human={human_score.item():.1%}, GAN={gen_score.item():.1%}")
+        print(f"[game] Digit {state['digit']} ({state.get('source', 'Generator')}): Human={human_score.item():.1%}, GAN={gen_score.item():.1%}")
         
     except Exception as e:
         print(f"[game] Error: {e}")
@@ -241,12 +290,13 @@ async def judge_drawing(sid, data):
 # ============================================
 
 def main():
-    global g_model, d_model, device, latent_dim
+    global g_model, d_model, device, latent_dim, mnist_dataset, digit_indices
     
     parser = argparse.ArgumentParser(description="Human vs GAN Game Server")
     parser.add_argument("--port", type=int, default=8993, help="Server port")
     parser.add_argument("--host", default="0.0.0.0", help="Server host")
     parser.add_argument("--model-dir", default="./model", help="Directory containing model files")
+    parser.add_argument("--mnist-dir", default="../../dataset", help="Directory containing MNIST dataset")
     parser.add_argument("--strategy", default="bce", choices=["bce", "lsgan", "hinge", "wgan-gp"],
                         help="Which trained strategy to use")
     parser.add_argument("--latent-dim", type=int, default=100, help="Latent dimension")
@@ -261,6 +311,33 @@ def main():
     print(f"[game] Using device: {device}")
     
     latent_dim = args.latent_dim
+    
+    # Load MNIST dataset for "MNIST Digit" mode
+    mnist_path = Path(args.mnist_dir)
+    if mnist_path.exists():
+        try:
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.5,), (0.5,))  # Scale to [-1, 1]
+            ])
+            mnist_dataset = datasets.MNIST(root=args.mnist_dir, train=True, download=False, transform=transform)
+            
+            # Build index: one pass through all labels
+            digit_indices = {d: [] for d in range(10)}
+            for i in range(len(mnist_dataset)):
+                _, label = mnist_dataset[i]
+                digit_indices[label].append(i)
+            
+            total = sum(len(v) for v in digit_indices.values())
+            print(f"[game] Loaded MNIST dataset: {total} samples indexed")
+        except Exception as e:
+            print(f"[game] Warning: Could not load MNIST dataset: {e}")
+            mnist_dataset = None
+            digit_indices = None
+    else:
+        print(f"[game] Warning: MNIST directory not found: {mnist_path}")
+        mnist_dataset = None
+        digit_indices = None
     
     # Load models
     model_dir = Path(args.model_dir)
@@ -281,14 +358,14 @@ def main():
     use_sigmoid = (args.strategy == "bce")
     
     g_model = Generator(latent_dim=latent_dim).to(device)
-    g_model.load_state_dict(torch.load(g_path, map_location=device))
+    g_model.load_state_dict(torch.load(g_path, map_location=device, weights_only=True))
     g_model.eval()
     print(f"[game] Loaded generator: {g_path}")
     
     d_model = Discriminator(use_sigmoid=use_sigmoid).to(device)
-    d_model.load_state_dict(torch.load(d_path, map_location=device))
+    d_model.load_state_dict(torch.load(d_path, map_location=device, weights_only=True))
     d_model.eval()
-    print(f"[game] Loaded discriminator: {d_path}")
+    print(f"[game] Loaded discriminator: {d_path} (use_sigmoid={use_sigmoid})")
     
     # Run server
     print(f"\n[game] Starting server at http://localhost:{args.port}")
