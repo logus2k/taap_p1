@@ -2,8 +2,7 @@
 // CONFIG
 // ============================================
 const CONFIG = {
-	totalRounds: 5,
-	strokeWidth: 12,
+	strokeWidth: 8,
 };
 
 // ============================================
@@ -106,6 +105,20 @@ mnistViewToggle.addEventListener("change", (e) => {
 // MNIST Digit toggle - restart round to fetch real MNIST or Generator
 const mnistDigitToggle = document.getElementById("mnistDigitToggle");
 mnistDigitToggle.addEventListener("change", () => {
+	const isMnist = mnistDigitToggle.checked;
+	
+	// Update all labels
+	document.getElementById("genCanvasLabel").textContent = 
+		isMnist ? "MNIST digit" : "AI-generated digit";
+	document.getElementById("tugGenLabel").textContent = 
+		isMnist ? "MNIST" : "Generator";
+	document.getElementById("genWinsLabel").textContent = 
+		isMnist ? "MNIST Wins" : "GAN Wins";
+	document.getElementById("genPanelTitle").textContent = 
+		isMnist ? "MNIST Sample" : "Generator Output";
+	document.getElementById("genIcon").textContent = 
+		isMnist ? "📊" : "⚡";
+	
 	// Restart current round with new source (keeps same digit)
 	if (state.digit !== null && !state.judging) {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -119,8 +132,7 @@ mnistDigitToggle.addEventListener("change", () => {
 		document.getElementById("genScoreDisplay").textContent = "Generating...";
 		document.getElementById("genScoreDisplay").classList.add("waiting");
 		
-		const useMnist = mnistDigitToggle.checked;
-		socket.emit("start_round", { digit: state.digit, use_mnist: useMnist });
+		socket.emit("start_round", { digit: state.digit, use_mnist: isMnist });
 	}
 });
 
@@ -129,6 +141,15 @@ function updatePreview() {
 	if (!mnistViewToggle.checked) return;
 
 	const processed = preprocess();
+	
+	// Debug: log value distribution
+	const nonZero = processed.filter(v => v > 0.01);
+	const gray = processed.filter(v => v > 0.01 && v < 0.99);
+	console.log(`Preview stats: ${nonZero.length} non-zero pixels, ${gray.length} gray pixels (not pure black/white)`);
+	if (gray.length > 0) {
+		const grayVals = gray.slice(0, 10).map(v => v.toFixed(2));
+		console.log(`Sample gray values: ${grayVals.join(', ')}`);
+	}
 
 	// Draw the 28x28 image scaled up to 280x280
 	previewCtx.clearRect(0, 0, 280, 280);
@@ -188,8 +209,7 @@ function endDraw() {
 	if (state.hasDrawn) {
 		canvas.classList.add("active");
 		document.getElementById("judgeBtn").disabled = false;
-		// Show MNIST-preprocessed view on release
-		updatePreview();
+		// Keep showing raw preview - MNIST view only shown after judging
 	}
 }
 
@@ -238,29 +258,87 @@ canvas.addEventListener("touchcancel", (e) => { e.preventDefault(); endDraw(); }
 canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); }, { passive: false });
 
 // ============================================
-// DIGIT SELECTOR (display only - auto-selected each round)
+// DIGIT SELECTOR (toggleable - click to select/deselect)
 // ============================================
 const digitContainer = document.getElementById("digitButtons");
+let selectedDigit = null;  // null = random mode
+
 for (let i = 0; i <= 9; i++) {
 	const btn = document.createElement("button");
 	btn.className = "digit-btn";
 	btn.textContent = i;
-	btn.disabled = true;  // Display only
+	btn.addEventListener("click", () => {
+		if (selectedDigit === i) {
+			// Deselect - go back to random mode
+			selectedDigit = null;
+			btn.classList.remove("selected");
+			document.querySelector(".digit-selector-header").textContent = "Target Digit (randomly selected)";
+		} else {
+			// Select this digit
+			document.querySelectorAll(".digit-btn").forEach(b => b.classList.remove("selected"));
+			selectedDigit = i;
+			btn.classList.add("selected");
+			document.querySelector(".digit-selector-header").textContent = "Target Digit (manually selected)";
+		}
+		
+		// Trigger new round with selected/random digit
+		if (!state.judging) {
+			triggerNewDigit();
+		}
+	});
 	digitContainer.appendChild(btn);
+}
+
+function triggerNewDigit() {
+	// Use selected digit or pick random
+	state.digit = selectedDigit !== null ? selectedDigit : Math.floor(Math.random() * 10);
+	
+	// Update button highlight for random selection
+	if (selectedDigit === null) {
+		document.querySelectorAll(".digit-btn").forEach((b, i) => b.classList.toggle("selected", i === state.digit));
+	}
+	
+	// Clear canvases
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	genCtx.clearRect(0, 0, genCanvas.width, genCanvas.height);
+	previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+	
+	// Reset state
+	state.hasDrawn = false;
+	canvas.classList.remove("active");
+	
+	// Reset UI
+	document.getElementById("judgeBtn").disabled = true;
+	document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+	document.getElementById("humanScoreDisplay").classList.add("waiting");
+	document.getElementById("genScoreDisplay").textContent = "Generating...";
+	document.getElementById("genScoreDisplay").classList.add("waiting");
+	
+	// Clear result indicator and panel colors
+	const resultEl = document.getElementById("roundResult");
+	resultEl.className = "round-result";
+	resultEl.textContent = "";
+	document.querySelector(".player-panel.human").classList.remove("winner", "loser", "tie");
+	document.querySelector(".player-panel.gen").classList.remove("winner", "loser", "tie");
+	
+	// Request new digit
+	const useMnist = document.getElementById("mnistDigitToggle").checked;
+	socket.emit("start_round", { digit: state.digit, use_mnist: useMnist });
 }
 
 // ============================================
 // PREPROCESSING
 // ============================================
 function preprocess() {
-	// Apply slight blur for MNIST-like soft edges
+	// Step 1: Apply blur at full resolution for soft edges
 	const blurCanvas = document.createElement("canvas");
 	blurCanvas.width = canvas.width;
 	blurCanvas.height = canvas.height;
 	const blurCtx = blurCanvas.getContext("2d");
-	blurCtx.filter = "blur(1px)";
+	blurCtx.filter = "blur(1.5px)";
 	blurCtx.drawImage(canvas, 0, 0);
 
+	// Get bounding box from blurred canvas
 	const imageData = blurCtx.getImageData(0, 0, blurCanvas.width, blurCanvas.height);
 	const data = imageData.data;
 
@@ -286,6 +364,7 @@ function preprocess() {
 	const bw = maxX - minX + 1;
 	const bh = maxY - minY + 1;
 
+	// Step 2: Scale blurred image to 28x28
 	const tmp = document.createElement("canvas");
 	tmp.width = 28;
 	tmp.height = 28;
@@ -362,43 +441,59 @@ function showResult(humanScore, genScore) {
 
 	const hPct = humanScore * 100;
 	const gPct = genScore * 100;
-	const margin = hPct - gPct;
 
 	// Update totals
 	state.humanTotal += hPct;
 	state.genTotal += gPct;
 
-	// Display scores
-	document.getElementById("humanScoreDisplay").textContent = hPct.toFixed(1) + "%";
+	// Compare with full precision
+	const margin = hPct - gPct;
+	
+	// Choose decimal places based on margin size
+	let decimals;
+	if (Math.abs(margin) < 0.01) {
+		decimals = 4;
+	} else if (Math.abs(margin) < 0.1) {
+		decimals = 2;
+	} else {
+		decimals = 1;
+	}
+
+	// Display scores with appropriate precision
+	document.getElementById("humanScoreDisplay").textContent = hPct.toFixed(decimals) + "%";
 	document.getElementById("humanScoreDisplay").classList.remove("waiting");
-	document.getElementById("genScoreDisplay").textContent = gPct.toFixed(1) + "%";
+	document.getElementById("genScoreDisplay").textContent = gPct.toFixed(decimals) + "%";
 	document.getElementById("genScoreDisplay").classList.remove("waiting");
 
-	// Result overlay
-	const badge = document.getElementById("resultBadge");
-	const title = document.getElementById("resultTitle");
-	const marginEl = document.getElementById("resultMargin");
-
-	document.getElementById("resultHumanScore").textContent = hPct.toFixed(1) + "%";
-	document.getElementById("resultGenScore").textContent = gPct.toFixed(1) + "%";
-
-	if (margin > 1) {
+	// Show result in inline indicator
+	const resultEl = document.getElementById("roundResult");
+	const humanPanel = document.querySelector(".player-panel.human");
+	const genPanel = document.querySelector(".player-panel.gen");
+	
+	// Clear previous result classes
+	humanPanel.classList.remove("winner", "loser", "tie");
+	genPanel.classList.remove("winner", "loser", "tie");
+	
+	// Get opponent name based on mode
+	const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
+	
+	if (hPct > gPct) {
 		state.humanWins++;
-		badge.className = "result-badge win";
-		badge.textContent = "Victory";
-		title.textContent = "You Win!";
-		marginEl.innerHTML = `Margin: <span class="positive">+${margin.toFixed(1)}%</span>`;
-	} else if (margin < -1) {
+		resultEl.className = "round-result win";
+		resultEl.textContent = `You Win! (+${margin.toFixed(decimals)}%)`;
+		humanPanel.classList.add("winner");
+		genPanel.classList.add("loser");
+	} else if (hPct < gPct) {
 		state.genWins++;
-		badge.className = "result-badge lose";
-		badge.textContent = "Defeat";
-		title.textContent = "GAN Wins";
-		marginEl.innerHTML = `Margin: <span class="negative">${margin.toFixed(1)}%</span>`;
+		resultEl.className = "round-result lose";
+		resultEl.textContent = `${opponentName} Wins (${margin.toFixed(decimals)}%)`;
+		humanPanel.classList.add("loser");
+		genPanel.classList.add("winner");
 	} else {
-		badge.className = "result-badge tie";
-		badge.textContent = "Draw";
-		title.textContent = "It's a Tie";
-		marginEl.innerHTML = `Margin: <span>${margin.toFixed(1)}%</span>`;
+		resultEl.className = "round-result tie";
+		resultEl.textContent = "Tie!";
+		humanPanel.classList.add("tie");
+		genPanel.classList.add("tie");
 	}
 
 	// Update UI
@@ -406,23 +501,22 @@ function showResult(humanScore, genScore) {
 	document.getElementById("genWins").textContent = state.genWins;
 	updateTugOfWar();
 
-	// Check game over
-	if (state.round >= CONFIG.totalRounds) {
-		document.getElementById("resultNextBtn").textContent = "Play Again";
-	}
-
-	document.getElementById("resultOverlay").classList.add("show");
+	// Show Next button
+	document.getElementById("judgeBtn").style.display = "none";
+	document.getElementById("nextBtn").style.display = "block";
 }
 
 // ============================================
 // ROUND MANAGEMENT
 // ============================================
 function startNewRound() {
-	// Pick random digit
-	state.digit = Math.floor(Math.random() * 10);
+	// Use selected digit or pick random
+	state.digit = selectedDigit !== null ? selectedDigit : Math.floor(Math.random() * 10);
 
-	// Update digit buttons to show selected
-	document.querySelectorAll(".digit-btn").forEach((b, i) => b.classList.toggle("selected", i === state.digit));
+	// Update digit buttons to show selected (for random mode)
+	if (selectedDigit === null) {
+		document.querySelectorAll(".digit-btn").forEach((b, i) => b.classList.toggle("selected", i === state.digit));
+	}
 
 	// Clear canvases
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -440,6 +534,15 @@ function startNewRound() {
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
 	document.getElementById("genScoreDisplay").textContent = "Generating...";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
+	
+	// Clear round result
+	const resultEl = document.getElementById("roundResult");
+	resultEl.className = "round-result";
+	resultEl.textContent = "";
+	
+	// Clear panel result colors
+	document.querySelector(".player-panel.human").classList.remove("winner", "loser", "tie");
+	document.querySelector(".player-panel.gen").classList.remove("winner", "loser", "tie");
 
 	// Check if MNIST Digit mode is enabled
 	const useMnist = document.getElementById("mnistDigitToggle").checked;
@@ -449,15 +552,12 @@ function startNewRound() {
 }
 
 function nextRound() {
-	document.getElementById("resultOverlay").classList.remove("show");
-
-	if (state.round >= CONFIG.totalRounds) {
-		resetGame();
-		return;
-	}
+	// Hide Next, show Judge
+	document.getElementById("nextBtn").style.display = "none";
+	document.getElementById("judgeBtn").style.display = "block";
 
 	state.round++;
-	document.getElementById("roundDisplay").textContent = `${state.round} / ${CONFIG.totalRounds}`;
+	document.getElementById("roundDisplay").textContent = state.round;
 	startNewRound();
 }
 
@@ -473,6 +573,15 @@ function resetRound() {
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
 	document.getElementById("genScoreDisplay").textContent = "Ready";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
+	
+	// Clear panel result colors
+	document.querySelector(".player-panel.human").classList.remove("winner", "loser", "tie");
+	document.querySelector(".player-panel.gen").classList.remove("winner", "loser", "tie");
+	
+	// Clear round result indicator
+	const resultEl = document.getElementById("roundResult");
+	resultEl.className = "round-result";
+	resultEl.textContent = "";
 }
 
 function resetGame() {
@@ -487,12 +596,15 @@ function resetGame() {
 		judging: false,
 	};
 
-	document.getElementById("roundDisplay").textContent = `1 / ${CONFIG.totalRounds}`;
+	document.getElementById("roundDisplay").textContent = "1";
 	document.getElementById("humanWins").textContent = "0";
 	document.getElementById("genWins").textContent = "0";
 	document.getElementById("tugHumanScore").textContent = "50%";
 	document.getElementById("tugGenScore").textContent = "50%";
-	document.getElementById("resultNextBtn").textContent = "Continue";
+	
+	// Reset button visibility
+	document.getElementById("nextBtn").style.display = "none";
+	document.getElementById("judgeBtn").style.display = "block";
 
 	startNewRound();
 }
@@ -510,6 +622,11 @@ document.getElementById("judgeBtn").onclick = () => {
 	// Send drawing as binary Float32Array
 	const imageData = preprocess();
 	const buffer = imageData.buffer;
+	
+	// Show MNIST-preprocessed view when judging
+	if (mnistViewToggle.checked) {
+		updatePreview();
+	}
 
 	socket.emit("judge_drawing", { image: buffer });
 };

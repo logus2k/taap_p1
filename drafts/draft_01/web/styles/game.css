@@ -184,8 +184,13 @@ header h1 {
 	font-size: 1.1rem;
 	font-weight: 600;
 	color: var(--text-dim);
-	cursor: default;
+	cursor: pointer;
 	transition: all 0.15s;
+}
+
+.digit-btn:hover {
+	border-color: var(--text);
+	color: var(--text);
 }
 
 .digit-btn.selected {
@@ -210,6 +215,19 @@ header h1 {
 	border: 1px solid var(--border);
 	border-radius: 12px;
 	padding: 20px;
+	transition: background-color 0.3s ease;
+}
+
+.player-panel.winner {
+	background: #aee7b4;
+}
+
+.player-panel.loser {
+	background: #ffacac;
+}
+
+.player-panel.tie {
+	background: #ca8a0426;
 }
 
 .player-header {
@@ -435,6 +453,34 @@ header h1 {
 .btn-next {
 	background: var(--text);
 	color: var(--bg);
+}
+
+/* Round Result Indicator */
+.round-result {
+	font-size: 0.9rem;
+	font-weight: 600;
+	padding: 8px 16px;
+	border-radius: 6px;
+	text-align: center;
+	min-height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.round-result.win {
+	background: rgba(22, 163, 74, 0.15);
+	color: var(--win);
+}
+
+.round-result.lose {
+	background: rgba(220, 38, 38, 0.15);
+	color: var(--lose);
+}
+
+.round-result.tie {
+	background: rgba(202, 138, 4, 0.15);
+	color: var(--tie);
 }
 
 /* Result Overlay */

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Human vs GAN — Adversarial Challenge</title>
+<title>GAN vs Human, An Adversarial Challenge</title>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:,">
@@ -10,14 +10,14 @@
 <body>
 <div class="container">
   <header>
-    <h1>Generator vs Human</h1>
-    <p class="subtitle">Draw a digit. Fool the Discriminator. Beat the GAN.</p>
+    <h1>GAN vs Human</h1>
+    <p class="subtitle">Draw a digit. Beat the Generator. Fool the Classifier.</p>
   </header>
 
   <!-- Tug of War with Image -->
   <div class="tug-of-war">
     <div class="tug-score-display">
-      <div class="tug-score-label">Generator</div>
+      <div class="tug-score-label" id="tugGenLabel">Generator</div>
       <div class="tug-score-value" id="tugGenScore">50%</div>
     </div>
     <img src="images/tug_of_war3.png" alt="Tug of War" class="tug-image">
@@ -30,12 +30,12 @@
   <!-- Score Section -->
   <div class="score-section">
     <div class="score-card">
-      <div class="label">GAN Wins</div>
+      <div class="label" id="genWinsLabel">GAN Wins</div>
       <div class="wins" id="genWins">0</div>
     </div>
     <div class="round-indicator">
       <div class="label">Round</div>
-      <div class="round" id="roundDisplay">1 / 5</div>
+      <div class="round" id="roundDisplay">1</div>
     </div>
     <div class="score-card">
       <div class="label">Human Wins</div>
@@ -54,15 +54,15 @@
     <!-- Generator Panel (LEFT) -->
     <div class="player-panel gen">
       <div class="player-header">
-        <div class="player-icon">⚡</div>
-        <div class="player-title">Generator Output</div>
+        <div class="player-icon" id="genIcon">⚡</div>
+        <div class="player-title" id="genPanelTitle">Generator Output</div>
       </div>
       <div class="gen-canvas-container">
         <canvas id="genCanvas" width="280" height="280"></canvas>
       </div>
-      <div class="canvas-label">AI-generated digit</div>
+      <div class="canvas-label" id="genCanvasLabel">AI-generated digit</div>
       <div class="d-score">
-        <div class="d-score-label">Discriminator Score</div>
+        <div class="d-score-label">Classifier Score</div>
         <div class="d-score-value waiting" id="genScoreDisplay">—</div>
       </div>
     </div>
@@ -73,6 +73,7 @@
       <button class="action-btn btn-judge" id="judgeBtn" disabled>Judge</button>
       <button class="action-btn btn-clear" id="clearBtn">Clear</button>
       <button class="action-btn btn-next" id="nextBtn" style="display: none;">Next</button>
+      <div class="round-result" id="roundResult"></div>
       <label class="preview-toggle">
         <input type="checkbox" id="mnistViewToggle">
         <span>MNIST View</span>
@@ -96,7 +97,7 @@
       </div>
       <div class="canvas-label">Draw the selected digit</div>
       <div class="d-score">
-        <div class="d-score-label">Discriminator Score</div>
+        <div class="d-score-label">Classifier Score</div>
         <div class="d-score-value waiting" id="humanScoreDisplay">—</div>
       </div>
     </div>

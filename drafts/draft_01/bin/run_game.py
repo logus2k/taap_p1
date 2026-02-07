@@ -5,7 +5,7 @@ Human vs GAN - Standalone Game Server
 Usage:
     python run_game.py
     python run_game.py --port 8993 --strategy bce
-    python run_game.py --model-dir ./model --strategy lsgan
+    python run_game.py --classifier ./classifier/mnist_cnn_best.ckpt
 
 Then open http://localhost:8993 in your browser.
 """
@@ -17,7 +17,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn.utils import spectral_norm
 from torchvision import datasets, transforms
 import socketio
 import uvicorn
@@ -64,37 +63,69 @@ class Generator(nn.Module):
         return x
 
 
-class Discriminator(nn.Module):
-    """Discriminator with spectral normalization."""
+# ============================================
+# CLASSIFIER MODEL (for judging)
+# ============================================
+
+class MNISTCNNClassifier(nn.Module):
+    """
+    Standalone CNN classifier matching MNISTCNN architecture.
+    Used as the Judge in the game.
+    """
     
-    def __init__(self, num_classes=10, use_sigmoid=True):
+    def __init__(
+        self,
+        width: int = 128,
+        depth: int = 3,
+        activation: str = "gelu",
+        use_bn: bool = False,
+        dropout_p: float = 0.0,
+        num_classes: int = 10,
+    ):
         super().__init__()
-        self.use_sigmoid = use_sigmoid
-        self.label_embedding = nn.Embedding(num_classes, 28 * 28)
+        self.width = width
+        self.depth = depth
+        self.num_classes = num_classes
         
-        self.model = nn.Sequential(
-            spectral_norm(nn.Conv2d(2, 32, kernel_size=3, stride=2, padding=1)),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.25),
-            spectral_norm(nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.25),
+        # Activation factory
+        act_table = {
+            "relu": nn.ReLU,
+            "gelu": nn.GELU,
+            "leakyrelu": nn.LeakyReLU,
+            "elu": nn.ELU,
+            "tanh": nn.Tanh,
+        }
+        act_cls = act_table.get(activation.lower(), nn.GELU)
+        
+        # Build encoder
+        channels = [width, 2 * width, 2 * width][:depth]
+        in_ch = 1
+        blocks = []
+        for out_ch in channels:
+            blocks.append(nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=not use_bn))
+            if use_bn:
+                blocks.append(nn.BatchNorm2d(out_ch))
+            blocks.append(act_cls())
+            blocks.append(nn.MaxPool2d(kernel_size=2))
+            in_ch = out_ch
+        self.encoder = nn.Sequential(*blocks)
+        
+        # Classifier head
+        spatial = 28 // (2 ** depth)
+        feat_dim = channels[-1] * spatial * spatial
+        head_layers = [
             nn.Flatten(),
-            spectral_norm(nn.Linear(64 * 7 * 7, 512)),
-            nn.ReLU(),
-            nn.Dropout(0.25),
-            spectral_norm(nn.Linear(512, 1)),
-        )
+            nn.Linear(feat_dim, width),
+            act_cls(),
+        ]
+        if dropout_p > 0.0:
+            head_layers.append(nn.Dropout(dropout_p))
+        head_layers.append(nn.Linear(width, num_classes))
+        self.head = nn.Sequential(*head_layers)
     
-    def forward(self, img, labels):
-        batch_size = img.size(0)
-        label_embed = self.label_embedding(labels)
-        label_embed = label_embed.view(batch_size, 1, 28, 28)
-        x = torch.cat([img, label_embed], dim=1)
-        out = self.model(x)
-        if self.use_sigmoid:
-            out = torch.sigmoid(out)
-        return out
+    def forward(self, x):
+        z = self.encoder(x)
+        return self.head(z)
 
 
 # ============================================
@@ -126,13 +157,19 @@ asgi_app = socketio.ASGIApp(sio, app)
 
 # Global model references
 g_model = None
-d_model = None
+classifier = None
 device = None
 latent_dim = 100
 
 # MNIST dataset for "MNIST Digit" mode
 mnist_dataset = None
-digit_indices = None  # {0: [idx, idx, ...], 1: [...], ...}
+digit_indices = None
+
+# Normalization constants
+# GAN uses: (x - 0.5) / 0.5 -> range [-1, 1]
+# Classifier uses MNIST stats: (x - 0.1307) / 0.3081
+MNIST_MEAN = 0.1307
+MNIST_STD = 0.3081
 
 
 def load_html():
@@ -169,7 +206,7 @@ _player_state = {}
 @sio.event
 async def start_round(sid, data):
     """Generate digit for new round."""
-    global g_model, d_model, device, latent_dim, mnist_dataset, digit_indices
+    global g_model, device, latent_dim, mnist_dataset, digit_indices
     
     print(f"[game] start_round received data: {data}")
     
@@ -222,13 +259,28 @@ async def start_round(sid, data):
         traceback.print_exc()
 
 
+def renormalize_for_classifier(tensor_gan):
+    """
+    Convert tensor from GAN normalization [-1, 1] to classifier normalization.
+    GAN: (x - 0.5) / 0.5 -> [-1, 1]
+    Classifier: (x - MNIST_MEAN) / MNIST_STD
+    
+    First convert back to [0, 1], then apply classifier normalization.
+    """
+    # GAN [-1, 1] -> [0, 1]
+    tensor_01 = (tensor_gan + 1) / 2
+    # [0, 1] -> classifier normalization
+    tensor_clf = (tensor_01 - MNIST_MEAN) / MNIST_STD
+    return tensor_clf
+
+
 @sio.event
 async def judge_drawing(sid, data):
-    """Score player's drawing against stored generator output."""
-    global d_model, device
+    """Score player's drawing using the classifier."""
+    global classifier, device
     
-    if d_model is None:
-        print("[game] Error: Discriminator not loaded!")
+    if classifier is None:
+        print("[game] Error: Classifier not loaded!")
         return
     
     if sid not in _player_state:
@@ -238,46 +290,52 @@ async def judge_drawing(sid, data):
     try:
         # Get stored generator output
         state = _player_state[sid]
-        gen_tensor = state["gen_tensor"]
-        label = state["label"]
+        gen_tensor = state["gen_tensor"]  # In GAN normalization [-1, 1]
+        digit = state["digit"]
         
-        # Parse player's drawing (binary Float32Array)
+        # Parse player's drawing (binary Float32Array, values in [0, 1])
         image_bytes = data["image"]
         if isinstance(image_bytes, bytes):
             human_image = np.frombuffer(image_bytes, dtype=np.float32).reshape(1, 1, 28, 28)
         else:
             human_image = np.array(image_bytes, dtype=np.float32).reshape(1, 1, 28, 28)
         
-        # Convert to tensor, normalize to [-1, 1]
+        # Convert to tensor in GAN normalization [-1, 1]
         human_tensor = torch.from_numpy(human_image.copy()).to(device)
         human_tensor = human_tensor * 2 - 1
         
-        # Debug: check tensor stats
-        print(f"[game] Human tensor - min: {human_tensor.min():.3f}, max: {human_tensor.max():.3f}, mean: {human_tensor.mean():.3f}")
-        print(f"[game] Gen tensor   - min: {gen_tensor.min():.3f}, max: {gen_tensor.max():.3f}, mean: {gen_tensor.mean():.3f}")
+        # Renormalize both for classifier
+        human_clf = renormalize_for_classifier(human_tensor)
+        gen_clf = renormalize_for_classifier(gen_tensor)
         
-        # Score both images
+        # Debug: check tensor stats
+        print(f"[game] Human (clf norm) - min: {human_clf.min():.3f}, max: {human_clf.max():.3f}, mean: {human_clf.mean():.3f}")
+        print(f"[game] Gen (clf norm)   - min: {gen_clf.min():.3f}, max: {gen_clf.max():.3f}, mean: {gen_clf.mean():.3f}")
+        
+        # Score both images using classifier
         with torch.no_grad():
-            human_score_raw = d_model(human_tensor, label)
-            gen_score_raw = d_model(gen_tensor, label)
+            human_logits = classifier(human_clf)
+            gen_logits = classifier(gen_clf)
             
-            print(f"[game] Raw scores - Human: {human_score_raw.item():.4f}, GAN: {gen_score_raw.item():.4f}")
+            # Get probability for target digit
+            human_probs = torch.softmax(human_logits, dim=1)
+            gen_probs = torch.softmax(gen_logits, dim=1)
             
-            # Apply sigmoid if needed (for non-BCE strategies where model doesn't apply sigmoid)
-            if human_score_raw.min() < 0 or human_score_raw.max() > 1:
-                human_score = torch.sigmoid(human_score_raw)
-                gen_score = torch.sigmoid(gen_score_raw)
-                print(f"[game] After sigmoid - Human: {human_score.item():.4f}, GAN: {gen_score.item():.4f}")
-            else:
-                human_score = human_score_raw
-                gen_score = gen_score_raw
+            human_score = human_probs[0, digit].item()
+            gen_score = gen_probs[0, digit].item()
+            
+            # Also get predicted class
+            human_pred = human_logits.argmax(dim=1).item()
+            gen_pred = gen_logits.argmax(dim=1).item()
+        
+        print(f"[game] Classifier scores - Human: {human_score:.6f} (pred={human_pred}), GAN: {gen_score:.6f} (pred={gen_pred})")
         
         await sio.emit("game_result", {
-            "human_score": float(human_score.item()),
-            "gen_score": float(gen_score.item()),
+            "human_score": float(human_score),
+            "gen_score": float(gen_score),
         }, to=sid)
         
-        print(f"[game] Digit {state['digit']} ({state.get('source', 'Generator')}): Human={human_score.item():.1%}, GAN={gen_score.item():.1%}")
+        print(f"[game] Digit {digit} ({state.get('source', 'Generator')}): Human={human_score:.1%}, GAN={gen_score:.1%}")
         
     except Exception as e:
         print(f"[game] Error: {e}")
@@ -290,13 +348,15 @@ async def judge_drawing(sid, data):
 # ============================================
 
 def main():
-    global g_model, d_model, device, latent_dim, mnist_dataset, digit_indices
+    global g_model, classifier, device, latent_dim, mnist_dataset, digit_indices
     
     parser = argparse.ArgumentParser(description="Human vs GAN Game Server")
     parser.add_argument("--port", type=int, default=8993, help="Server port")
     parser.add_argument("--host", default="0.0.0.0", help="Server host")
     parser.add_argument("--model-dir", default="./model", help="Directory containing model files")
     parser.add_argument("--mnist-dir", default="../../dataset", help="Directory containing MNIST dataset")
+    parser.add_argument("--classifier", default="../../drafts/draft_01/classifier/mnist_cnn_calibrated_best.ckpt", 
+                        help="Path to classifier checkpoint")
     parser.add_argument("--strategy", default="bce", choices=["bce", "lsgan", "hinge", "wgan-gp"],
                         help="Which trained strategy to use")
     parser.add_argument("--latent-dim", type=int, default=100, help="Latent dimension")
@@ -339,37 +399,81 @@ def main():
         mnist_dataset = None
         digit_indices = None
     
-    # Load models
+    # Load classifier
+    classifier_path = Path(args.classifier)
+    if classifier_path.exists():
+        try:
+            # Load Lightning checkpoint
+            checkpoint = torch.load(classifier_path, map_location=device, weights_only=False)
+            
+            # Extract hyperparameters if available
+            hparams = checkpoint.get("hyper_parameters", {})
+            width = hparams.get("width", 128)
+            depth = hparams.get("depth", 3)
+            activation = hparams.get("activation", "relu")
+            use_bn = hparams.get("use_bn", False)
+            dropout_p = hparams.get("dropout_p", 0.1)
+            
+            print(f"[game] Classifier hparams: width={width}, depth={depth}, activation={activation}, use_bn={use_bn}, dropout_p={dropout_p}")
+            
+            # Create model and load weights
+            classifier = MNISTCNNClassifier(
+                width=width,
+                depth=depth,
+                activation=activation,
+                use_bn=use_bn,
+                dropout_p=dropout_p,
+            ).to(device)
+            
+            # Lightning saves state_dict under "state_dict" key
+            state_dict = checkpoint.get("state_dict", checkpoint)
+            
+            # Remove "model." prefix if present (Lightning adds module prefixes)
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                # Remove common prefixes
+                new_key = k.replace("model.", "").replace("encoder.", "encoder.").replace("head.", "head.")
+                new_state_dict[new_key] = v
+            
+            classifier.load_state_dict(new_state_dict, strict=False)
+            classifier.eval()
+            print(f"[game] Loaded classifier: {classifier_path}")
+        except Exception as e:
+            print(f"[game] Warning: Could not load classifier: {e}")
+            import traceback
+            traceback.print_exc()
+            classifier = None
+    else:
+        print(f"[game] Warning: Classifier not found: {classifier_path}")
+        classifier = None
+    
+    # Load GAN models
     model_dir = Path(args.model_dir)
     g_path = model_dir / f"G_{args.strategy}.pt"
-    d_path = model_dir / f"D_{args.strategy}.pt"
     
-    if not g_path.exists() or not d_path.exists():
-        print(f"[game] Error: Model files not found!")
+    if not g_path.exists():
+        print(f"[game] Error: Generator model not found!")
         print(f"       Expected: {g_path}")
-        print(f"       Expected: {d_path}")
         print(f"\n       Available files in {model_dir}:")
         if model_dir.exists():
             for f in model_dir.iterdir():
                 print(f"         - {f.name}")
         return
     
-    # Use sigmoid for BCE, not for others
-    use_sigmoid = (args.strategy == "bce")
-    
     g_model = Generator(latent_dim=latent_dim).to(device)
     g_model.load_state_dict(torch.load(g_path, map_location=device, weights_only=True))
     g_model.eval()
     print(f"[game] Loaded generator: {g_path}")
     
-    d_model = Discriminator(use_sigmoid=use_sigmoid).to(device)
-    d_model.load_state_dict(torch.load(d_path, map_location=device, weights_only=True))
-    d_model.eval()
-    print(f"[game] Loaded discriminator: {d_path} (use_sigmoid={use_sigmoid})")
+    # Check if classifier is available
+    if classifier is None:
+        print(f"\n[game] WARNING: No classifier loaded! Game will not work properly.")
+        print(f"       Please provide a valid classifier checkpoint with --classifier")
     
     # Run server
     print(f"\n[game] Starting server at http://localhost:{args.port}")
     print(f"[game] Strategy: {args.strategy.upper()}")
+    print(f"[game] Judge: {'Classifier' if classifier else 'NONE'}")
     print(f"[game] Press Ctrl+C to stop\n")
     
     uvicorn.run(asgi_app, host=args.host, port=args.port, log_level="warning")
