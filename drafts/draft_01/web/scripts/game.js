@@ -141,15 +141,6 @@ function updatePreview() {
 	if (!mnistViewToggle.checked) return;
 
 	const processed = preprocess();
-	
-	// Debug: log value distribution
-	const nonZero = processed.filter(v => v > 0.01);
-	const gray = processed.filter(v => v > 0.01 && v < 0.99);
-	console.log(`Preview stats: ${nonZero.length} non-zero pixels, ${gray.length} gray pixels (not pure black/white)`);
-	if (gray.length > 0) {
-		const grayVals = gray.slice(0, 10).map(v => v.toFixed(2));
-		console.log(`Sample gray values: ${grayVals.join(', ')}`);
-	}
 
 	// Draw the 28x28 image scaled up to 280x280
 	previewCtx.clearRect(0, 0, 280, 280);
@@ -242,7 +233,7 @@ function draw(e) {
 	lastY = p.y;
 	state.hasDrawn = true;
 
-	// During drawing: show raw strokes (not centered) for better UX
+	// During drawing: show raw strokes in preview
 	if (mnistViewToggle.checked) {
 		updatePreviewRaw();
 	}
@@ -330,18 +321,11 @@ function triggerNewDigit() {
 // PREPROCESSING
 // ============================================
 function preprocess() {
-	// Step 1: Apply blur at full resolution for soft edges
-	const blurCanvas = document.createElement("canvas");
-	blurCanvas.width = canvas.width;
-	blurCanvas.height = canvas.height;
-	const blurCtx = blurCanvas.getContext("2d");
-	blurCtx.filter = "blur(1.5px)";
-	blurCtx.drawImage(canvas, 0, 0);
-
-	// Get bounding box from blurred canvas
-	const imageData = blurCtx.getImageData(0, 0, blurCanvas.width, blurCanvas.height);
+	// Get original image data
+	const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 	const data = imageData.data;
-
+	
+	// Find bounding box
 	let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
 	let sumI = 0;
 
@@ -364,7 +348,7 @@ function preprocess() {
 	const bw = maxX - minX + 1;
 	const bh = maxY - minY + 1;
 
-	// Step 2: Scale blurred image to 28x28
+	// Scale to 28x28 with smoothing
 	const tmp = document.createElement("canvas");
 	tmp.width = 28;
 	tmp.height = 28;
@@ -378,11 +362,15 @@ function preprocess() {
 	const ox = (28 - sw) / 2;
 	const oy = (28 - sh) / 2;
 
-	tctx.drawImage(blurCanvas, minX, minY, bw, bh, ox, oy, sw, sh);
+	tctx.drawImage(canvas, minX, minY, bw, bh, ox, oy, sw, sh);
 
+	// Get scaled image - no blur, just like MNIST UI
 	const img = tctx.getImageData(0, 0, 28, 28);
 	const out = new Float32Array(784);
-	for (let i = 0; i < 784; i++) out[i] = img.data[i * 4] / 255;
+	for (let i = 0; i < 784; i++) {
+		out[i] = img.data[i * 4] / 255;
+	}
+	
 	return out;
 }
 
@@ -622,7 +610,7 @@ document.getElementById("judgeBtn").onclick = () => {
 	// Send drawing as binary Float32Array
 	const imageData = preprocess();
 	const buffer = imageData.buffer;
-	
+
 	// Show MNIST-preprocessed view when judging
 	if (mnistViewToggle.checked) {
 		updatePreview();

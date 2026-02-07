@@ -275,6 +275,7 @@ header h1 {
 	touch-action: none;
 	border: 2px solid var(--border);
 	border-radius: 10px;
+	z-index: 3;
 }
 
 #previewCanvas {
@@ -289,6 +290,7 @@ header h1 {
 	pointer-events: none;
 	opacity: 0;
 	transition: opacity 0.2s;
+	z-index: 1;
 }
 
 #gridCanvas {
@@ -300,6 +302,7 @@ header h1 {
 	pointer-events: none;
 	opacity: 0;
 	transition: opacity 0.2s;
+	z-index: 2;
 }
 
 .mnist-view #previewCanvas,
@@ -309,6 +312,7 @@ header h1 {
 
 .mnist-view #drawCanvas {
 	opacity: 0;
+	pointer-events: auto;
 }
 
 #drawCanvas.active {
