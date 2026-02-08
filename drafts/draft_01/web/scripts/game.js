@@ -18,8 +18,8 @@ let state = {
 	round: 1,
 	trial: 1,
 	digit: null,
-	humanWins: 0,      // Trial wins this round
-	genWins: 0,        // Trial wins this round
+	humanMargin: 0,    // Cumulative margin for human
+	genMargin: 0,      // Cumulative margin for GAN
 	humanRounds: 0,    // Round wins
 	genRounds: 0,      // Round wins
 	humanPct: 50.0,    // Tug-of-war percentage
@@ -129,7 +129,7 @@ mnistDigitToggle.addEventListener("change", () => {
 	document.getElementById("tugGenLabel").textContent = 
 		isMnist ? "MNIST" : "Generator";
 	document.getElementById("genWinsLabel").textContent = 
-		isMnist ? "MNIST Wins" : "GAN Wins";
+		isMnist ? "MNIST Margin" : "GAN Margin";
 	
 	// Restart current round with new source (keeps same digit)
 	if (state.digit !== null && !state.judging) {
@@ -148,11 +148,11 @@ mnistDigitToggle.addEventListener("change", () => {
 	}
 });
 
-// Update preview canvas with MNIST-like rendering
+// Update preview canvas with MNIST-like rendering (no centering during drawing)
 function updatePreview() {
 	if (!mnistViewToggle.checked) return;
 
-	const processed = preprocess();
+	const processed = preprocessLive();
 
 	// Draw the 28x28 image scaled up to 280x280
 	previewCtx.clearRect(0, 0, 280, 280);
@@ -250,9 +250,9 @@ function draw(e) {
 	lastY = p.y;
 	state.hasDrawn = true;
 
-	// During drawing: show raw strokes in preview
+	// During drawing: show pixelated preview if MNIST view is enabled
 	if (mnistViewToggle.checked) {
-		updatePreviewRaw();
+		updatePreview();
 	}
 }
 
@@ -337,6 +337,39 @@ function triggerNewDigit() {
 // ============================================
 // PREPROCESSING
 // ============================================
+
+// Live preview - no centering, with antialiasing for MNIST-like soft edges
+function preprocessLive() {
+	// Use intermediate canvas at 2x for better antialiasing
+	const intermediate = document.createElement("canvas");
+	intermediate.width = 56;
+	intermediate.height = 56;
+	const ictx = intermediate.getContext("2d");
+	ictx.imageSmoothingEnabled = true;
+	ictx.imageSmoothingQuality = "high";
+	
+	// First scale to 56x56
+	ictx.drawImage(canvas, 0, 0, 56, 56);
+	
+	// Then scale to 28x28 for extra smoothing
+	const tmp = document.createElement("canvas");
+	tmp.width = 28;
+	tmp.height = 28;
+	const tctx = tmp.getContext("2d");
+	tctx.imageSmoothingEnabled = true;
+	tctx.imageSmoothingQuality = "high";
+	tctx.drawImage(intermediate, 0, 0, 28, 28);
+	
+	const img = tctx.getImageData(0, 0, 28, 28);
+	const out = new Float32Array(784);
+	for (let i = 0; i < 784; i++) {
+		out[i] = img.data[i * 4] / 255;
+	}
+	
+	return out;
+}
+
+// Final preprocessing for submission - with centering (MNIST-style)
 function preprocess() {
 	// Get original image data
 	const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -492,6 +525,33 @@ function autoSubmit() {
 }
 
 // ============================================
+// MARGIN DISPLAY
+// ============================================
+function updateMarginDisplay() {
+	const humanMarginEl = document.getElementById("humanMargin");
+	const genMarginEl = document.getElementById("genMargin");
+	
+	// Format with sign and 2 decimal places
+	const humanText = (state.humanMargin >= 0 ? "+" : "") + state.humanMargin.toFixed(2) + "%";
+	const genText = (state.genMargin >= 0 ? "+" : "") + state.genMargin.toFixed(2) + "%";
+	
+	humanMarginEl.textContent = humanText;
+	genMarginEl.textContent = genText;
+	
+	// Color based on who's ahead
+	humanMarginEl.classList.remove("positive", "negative");
+	genMarginEl.classList.remove("positive", "negative");
+	
+	if (state.humanMargin > state.genMargin) {
+		humanMarginEl.classList.add("positive");
+		genMarginEl.classList.add("negative");
+	} else if (state.genMargin > state.humanMargin) {
+		genMarginEl.classList.add("positive");
+		humanMarginEl.classList.add("negative");
+	}
+}
+
+// ============================================
 // TUG OF WAR
 // ============================================
 function updateTugOfWar() {
@@ -582,13 +642,13 @@ function showResult(humanScore, genScore) {
 	const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
 	
 	if (hPct > gPct) {
-		state.humanWins++;
+		state.humanMargin += absMargin;
 		resultEl.className = "round-result win";
 		resultEl.textContent = `You Win! (+${absMargin.toFixed(decimals)}%)`;
 		humanPanel.classList.add("winner");
 		genPanel.classList.add("loser");
 	} else if (hPct < gPct) {
-		state.genWins++;
+		state.genMargin += absMargin;
 		resultEl.className = "round-result lose";
 		resultEl.textContent = `${opponentName} Wins (-${absMargin.toFixed(decimals)}%)`;
 		humanPanel.classList.add("loser");
@@ -600,9 +660,8 @@ function showResult(humanScore, genScore) {
 		genPanel.classList.add("tie");
 	}
 
-	// Update UI
-	document.getElementById("humanWins").textContent = state.humanWins;
-	document.getElementById("genWins").textContent = state.genWins;
+	// Update UI - show cumulative margins
+	updateMarginDisplay();
 	updateTugOfWar();
 
 	// Check if round is complete
@@ -696,9 +755,6 @@ function endRound() {
 		roundWinner = 'tie';
 	}
 	
-	// Update round wins display
-	document.getElementById("roundWins").textContent = `${state.humanRounds} - ${state.genRounds}`;
-	
 	// Show round result overlay
 	showRoundEndOverlay(roundWinner);
 }
@@ -731,8 +787,8 @@ function showRoundEndOverlay(winner) {
 		margin.innerHTML = `Final: ${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%`;
 	}
 	
-	humanScore.textContent = `${state.humanWins} wins`;
-	genScore.textContent = `${state.genWins} wins`;
+	humanScore.textContent = `+${state.humanMargin.toFixed(2)}%`;
+	genScore.textContent = `+${state.genMargin.toFixed(2)}%`;
 	
 	overlay.classList.add("show");
 }
@@ -744,15 +800,16 @@ function startNextRound() {
 	// Reset for new round
 	state.round++;
 	state.trial = 1;
-	state.humanWins = 0;
-	state.genWins = 0;
+	state.humanMargin = 0;
+	state.genMargin = 0;
 	state.humanPct = 50.0;
 	state.genPct = 50.0;
 	
 	// Update displays
-	document.getElementById("roundDisplay").textContent = state.round;
-	document.getElementById("humanWins").textContent = "0";
-	document.getElementById("genWins").textContent = "0";
+	document.getElementById("humanMargin").textContent = "+0.00%";
+	document.getElementById("genMargin").textContent = "+0.00%";
+	document.getElementById("humanMargin").classList.remove("positive", "negative");
+	document.getElementById("genMargin").classList.remove("positive", "negative");
 	updateTugOfWar();
 	
 	// Reset button visibility
@@ -806,8 +863,8 @@ function resetGame() {
 		round: 1,
 		trial: 1,
 		digit: null,
-		humanWins: 0,
-		genWins: 0,
+		humanMargin: 0,
+		genMargin: 0,
 		humanRounds: 0,
 		genRounds: 0,
 		humanPct: 50.0,
@@ -820,11 +877,11 @@ function resetGame() {
 		timeRemaining: state.timeLimit,
 	};
 
-	document.getElementById("roundDisplay").textContent = "1";
 	document.getElementById("trialDisplay").textContent = `1/${CONFIG.trialsPerRound}`;
-	document.getElementById("roundWins").textContent = "0 - 0";
-	document.getElementById("humanWins").textContent = "0";
-	document.getElementById("genWins").textContent = "0";
+	document.getElementById("humanMargin").textContent = "+0.00%";
+	document.getElementById("genMargin").textContent = "+0.00%";
+	document.getElementById("humanMargin").classList.remove("positive", "negative");
+	document.getElementById("genMargin").classList.remove("positive", "negative");
 	document.getElementById("tugHumanScore").textContent = "50%";
 	document.getElementById("tugGenScore").textContent = "50%";
 	document.getElementById("tugHumanPrecise").textContent = "50.000000%";

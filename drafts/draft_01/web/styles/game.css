@@ -152,6 +152,21 @@ header h1 {
 	color: var(--text);
 }
 
+.score-card .margin-value {
+	font-family: 'JetBrains Mono', monospace;
+	font-size: 1.4rem;
+	font-weight: 700;
+	color: var(--text);
+}
+
+.score-card .margin-value.positive {
+	color: var(--win);
+}
+
+.score-card .margin-value.negative {
+	color: var(--lose);
+}
+
 .trial-indicator {
 	background: var(--surface);
 	border: 1px solid var(--border);
@@ -332,6 +347,7 @@ header h1 {
 	width: 280px;
 	height: 280px;
 	background: #000;
+	border: 2px solid var(--border);
 	border-radius: 10px;
 	image-rendering: pixelated;
 	pointer-events: none;
