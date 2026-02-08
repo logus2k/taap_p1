@@ -30,6 +30,8 @@ let state = {
 	digit: null,
 	humanMargin: 0,    // Cumulative margin for human
 	genMargin: 0,      // Cumulative margin for GAN
+	humanTrialWins: 0, // Trial wins this round
+	genTrialWins: 0,   // Trial wins this round
 	humanRounds: 0,    // Round wins
 	genRounds: 0,      // Round wins
 	humanPct: 50.0,    // Tug-of-war percentage
@@ -118,15 +120,47 @@ drawGrid();
 // MNIST view toggle
 const mnistViewToggle = document.getElementById("mnistViewToggle");
 const canvasContainer = document.querySelector(".canvas-container");
+const genCanvasContainer = document.querySelector(".gen-canvas-container");
+
+// Generator grid canvas
+const genGridCanvas = document.getElementById("genGridCanvas");
+const genGridCtx = genGridCanvas.getContext("2d");
+
+function drawGenGrid() {
+	const cell = 280 / 28;
+	genGridCtx.clearRect(0, 0, genGridCanvas.width, genGridCanvas.height);
+	genGridCtx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+	genGridCtx.lineWidth = 1;
+
+	for (let i = 0; i <= 28; i++) {
+		const pos = i * cell;
+		genGridCtx.beginPath();
+		genGridCtx.moveTo(pos, 0);
+		genGridCtx.lineTo(pos, 280);
+		genGridCtx.stroke();
+		genGridCtx.beginPath();
+		genGridCtx.moveTo(0, pos);
+		genGridCtx.lineTo(280, pos);
+		genGridCtx.stroke();
+	}
+}
+drawGenGrid();
 
 mnistViewToggle.addEventListener("change", (e) => {
 	if (e.target.checked) {
 		canvasContainer.classList.add("mnist-view");
+		genCanvasContainer.classList.add("mnist-view-active");
 		updatePreview();
 	} else {
 		canvasContainer.classList.remove("mnist-view");
+		genCanvasContainer.classList.remove("mnist-view-active");
 	}
 });
+
+// Set MNIST View as default
+mnistViewToggle.checked = true;
+canvasContainer.classList.add("mnist-view");
+genCanvasContainer.classList.add("mnist-view-active");
 
 // MNIST Digit toggle - restart round to fetch real MNIST or Generator
 const mnistDigitToggle = document.getElementById("mnistDigitToggle");
@@ -386,16 +420,24 @@ function preprocessLive() {
 	return out;
 }
 
-// Debug slider handlers
-function setupDebugSliders() {
-	const debugPanel = document.getElementById("debugPanel");
+// Settings panel handlers
+function setupSettingsPanel() {
+	const settingsGear = document.getElementById("settingsGear");
+	const settingsPanel = document.getElementById("settingsPanel");
+	const settingsClose = document.getElementById("settingsClose");
 	
-	// Show debug panel when MNIST View is checked
-	mnistViewToggle.addEventListener("change", () => {
-		if (mnistViewToggle.checked) {
-			debugPanel.classList.add("show");
-		} else {
-			debugPanel.classList.remove("show");
+	settingsGear.addEventListener("click", () => {
+		settingsPanel.classList.toggle("show");
+	});
+	
+	settingsClose.addEventListener("click", () => {
+		settingsPanel.classList.remove("show");
+	});
+	
+	// Close panel when clicking outside
+	document.addEventListener("click", (e) => {
+		if (!settingsPanel.contains(e.target) && !settingsGear.contains(e.target)) {
+			settingsPanel.classList.remove("show");
 		}
 	});
 	
@@ -445,7 +487,7 @@ function setupDebugSliders() {
 	});
 }
 
-setupDebugSliders();
+setupSettingsPanel();
 
 // Simple Gaussian blur implementation
 function gaussianBlur(data, width, height, sigma) {
@@ -705,31 +747,32 @@ function updateMarginDisplay() {
 }
 
 // ============================================
-// TUG OF WAR
+// TUG OF WAR (now based on trial wins)
 // ============================================
 function updateTugOfWar() {
 	const humanScoreEl = document.getElementById("tugHumanScore");
 	const genScoreEl = document.getElementById("tugGenScore");
 	
-	humanScoreEl.textContent = state.humanPct.toFixed(0) + "%";
-	genScoreEl.textContent = state.genPct.toFixed(0) + "%";
+	// Display trial wins as the big numbers
+	humanScoreEl.textContent = state.humanTrialWins;
+	genScoreEl.textContent = state.genTrialWins;
 	
-	// Show same percentage with full precision (6 decimals)
-	document.getElementById("tugHumanPrecise").textContent = state.humanPct.toFixed(6) + "%";
-	document.getElementById("tugGenPrecise").textContent = state.genPct.toFixed(6) + "%";
+	// Show trial count in precise display
+	document.getElementById("tugHumanPrecise").textContent = `${state.humanTrialWins} wins`;
+	document.getElementById("tugGenPrecise").textContent = `${state.genTrialWins} wins`;
 	
 	// Update colors based on who's winning
 	humanScoreEl.classList.remove("winning", "losing", "tied");
 	genScoreEl.classList.remove("winning", "losing", "tied");
 	
-	if (state.humanPct > state.genPct) {
+	if (state.humanTrialWins > state.genTrialWins) {
 		humanScoreEl.classList.add("winning");
 		genScoreEl.classList.add("losing");
-	} else if (state.genPct > state.humanPct) {
+	} else if (state.genTrialWins > state.humanTrialWins) {
 		genScoreEl.classList.add("winning");
 		humanScoreEl.classList.add("losing");
 	} else {
-		// Tied - both yellow
+		// Tied
 		humanScoreEl.classList.add("tied");
 		genScoreEl.classList.add("tied");
 	}
@@ -794,23 +837,28 @@ function showResult(humanScore, genScore) {
 	// Get opponent name based on mode
 	const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
 	
-	if (hPct > gPct) {
-		state.humanMargin += absMargin;
-		resultEl.className = "round-result win";
-		resultEl.textContent = `You Win! (+${absMargin.toFixed(decimals)}%)`;
-		humanPanel.classList.add("winner");
-		genPanel.classList.add("loser");
-	} else if (hPct < gPct) {
-		state.genMargin += absMargin;
-		resultEl.className = "round-result lose";
-		resultEl.textContent = `${opponentName} Wins (-${absMargin.toFixed(decimals)}%)`;
-		humanPanel.classList.add("loser");
-		genPanel.classList.add("winner");
-	} else {
+	// Treat very small margins (< 0.0001%) as ties
+	const TIE_THRESHOLD = 0.0001;
+	
+	if (absMargin < TIE_THRESHOLD) {
 		resultEl.className = "round-result tie";
 		resultEl.textContent = "Tie!";
 		humanPanel.classList.add("tie");
 		genPanel.classList.add("tie");
+	} else if (hPct > gPct) {
+		state.humanMargin += absMargin;
+		state.humanTrialWins++;
+		resultEl.className = "round-result win";
+		resultEl.textContent = `You Win! (+${absMargin.toFixed(decimals)}%)`;
+		humanPanel.classList.add("winner");
+		genPanel.classList.add("loser");
+	} else {
+		state.genMargin += absMargin;
+		state.genTrialWins++;
+		resultEl.className = "round-result lose";
+		resultEl.textContent = `${opponentName} Wins (-${absMargin.toFixed(decimals)}%)`;
+		humanPanel.classList.add("loser");
+		genPanel.classList.add("winner");
 	}
 
 	// Update UI - show cumulative margins
@@ -896,12 +944,13 @@ function nextTrial() {
 }
 
 function endRound() {
-	// Determine round winner based on tug-of-war
+	// Determine round winner based on trial wins
 	let roundWinner;
-	if (state.humanPct > state.genPct) {
+	
+	if (state.humanTrialWins > state.genTrialWins) {
 		state.humanRounds++;
 		roundWinner = 'human';
-	} else if (state.genPct > state.humanPct) {
+	} else if (state.genTrialWins > state.humanTrialWins) {
 		state.genRounds++;
 		roundWinner = 'gen';
 	} else {
@@ -919,29 +968,31 @@ function showRoundEndOverlay(winner) {
 	const margin = document.getElementById("resultMargin");
 	const humanScore = document.getElementById("resultHumanScore");
 	const genScore = document.getElementById("resultGenScore");
+	const genLabel = document.getElementById("resultGenLabel");
 	
-	const pctDiff = Math.abs(state.humanPct - state.genPct).toFixed(2);
+	const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
+	genLabel.textContent = `${opponentName} Score`;
 	
 	if (winner === 'human') {
 		badge.className = "result-badge win";
 		badge.textContent = "Victory";
 		title.textContent = "You Won the Round!";
-		margin.innerHTML = `Final: <span class="positive">${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%</span>`;
+		margin.innerHTML = `Final: <span class="positive">${state.humanTrialWins} - ${state.genTrialWins}</span>`;
 	} else if (winner === 'gen') {
-		const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
 		badge.className = "result-badge lose";
 		badge.textContent = "Defeat";
 		title.textContent = `${opponentName} Won the Round`;
-		margin.innerHTML = `Final: <span class="negative">${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%</span>`;
+		margin.innerHTML = `Final: <span class="negative">${state.humanTrialWins} - ${state.genTrialWins}</span>`;
 	} else {
 		badge.className = "result-badge tie";
 		badge.textContent = "Draw";
 		title.textContent = "Round Tied!";
-		margin.innerHTML = `Final: ${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%`;
+		margin.innerHTML = `Final: ${state.humanTrialWins} - ${state.genTrialWins}`;
 	}
 	
-	humanScore.textContent = `+${state.humanMargin.toFixed(2)}%`;
-	genScore.textContent = `+${state.genMargin.toFixed(2)}%`;
+	// Show trial wins
+	genScore.textContent = `${state.genTrialWins} wins`;
+	humanScore.textContent = `${state.humanTrialWins} wins`;
 	
 	overlay.classList.add("show");
 }
@@ -955,6 +1006,8 @@ function startNextRound() {
 	state.trial = 1;
 	state.humanMargin = 0;
 	state.genMargin = 0;
+	state.humanTrialWins = 0;
+	state.genTrialWins = 0;
 	state.humanPct = 50.0;
 	state.genPct = 50.0;
 	
@@ -1018,6 +1071,8 @@ function resetGame() {
 		digit: null,
 		humanMargin: 0,
 		genMargin: 0,
+		humanTrialWins: 0,
+		genTrialWins: 0,
 		humanRounds: 0,
 		genRounds: 0,
 		humanPct: 50.0,

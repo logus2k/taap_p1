@@ -67,6 +67,7 @@
       </div>
       <div class="gen-canvas-container">
         <canvas id="genCanvas" width="280" height="280"></canvas>
+        <canvas id="genGridCanvas" width="280" height="280"></canvas>
       </div>
       <div class="d-score">
         <div class="d-score-label">Classifier Score</div>
@@ -93,29 +94,6 @@
         <input type="checkbox" id="mnistDigitToggle">
         <span>MNIST Digit</span>
       </label>
-      <div class="debug-panel" id="debugPanel">
-        <div class="debug-title">MNIST Preview Settings</div>
-        <div class="debug-slider">
-          <label>Sigma: <span id="sigmaValue">0.7</span></label>
-          <input type="range" id="sigmaSlider" min="0" max="2" step="0.1" value="0.7">
-        </div>
-        <div class="debug-slider">
-          <label>Gamma: <span id="gammaValue">2.00</span></label>
-          <input type="range" id="gammaSlider" min="0.1" max="3" step="0.05" value="2.00">
-        </div>
-        <div class="debug-slider">
-          <label>Contrast: <span id="contrastValue">1.9</span></label>
-          <input type="range" id="contrastSlider" min="0.5" max="3" step="0.1" value="1.9">
-        </div>
-        <div class="debug-slider">
-          <label>Brightness: <span id="brightnessValue">0.15</span></label>
-          <input type="range" id="brightnessSlider" min="-0.5" max="0.5" step="0.05" value="0.15">
-        </div>
-        <div class="debug-slider">
-          <label>Stroke Width: <span id="strokeWidthValue">8</span></label>
-          <input type="range" id="strokeWidthSlider" min="4" max="20" step="1" value="8">
-        </div>
-      </div>
     </div>
 
     <!-- Human Panel (RIGHT) -->
@@ -144,12 +122,12 @@
     <div class="result-margin" id="resultMargin">Margin: <span class="positive">+12.4%</span></div>
     <div class="result-scores">
       <div class="result-score-item">
-        <div class="result-score-label">Your Score</div>
-        <div class="result-score-value human" id="resultHumanScore">85.2%</div>
+        <div class="result-score-label" id="resultGenLabel">GAN Score</div>
+        <div class="result-score-value gen" id="resultGenScore">72.8%</div>
       </div>
       <div class="result-score-item">
-        <div class="result-score-label">GAN Score</div>
-        <div class="result-score-value gen" id="resultGenScore">72.8%</div>
+        <div class="result-score-label">Your Score</div>
+        <div class="result-score-value human" id="resultHumanScore">85.2%</div>
       </div>
     </div>
     <button class="result-btn" id="resultNextBtn">Continue</button>
@@ -160,6 +138,45 @@
 <div class="connection">
   <div class="connection-dot" id="connDot"></div>
   <span id="connText">Connecting</span>
+</div>
+
+<!-- Settings Gear -->
+<button class="settings-gear" id="settingsGear">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"></circle>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+  </svg>
+</button>
+
+<!-- Settings Panel -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <span>SETTINGS</span>
+    <button class="settings-close" id="settingsClose">&times;</button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">MNIST Preview</div>
+    <div class="settings-slider">
+      <label>Sigma: <span id="sigmaValue">0.7</span></label>
+      <input type="range" id="sigmaSlider" min="0" max="2" step="0.1" value="0.7">
+    </div>
+    <div class="settings-slider">
+      <label>Gamma: <span id="gammaValue">2.00</span></label>
+      <input type="range" id="gammaSlider" min="0.1" max="5" step="0.05" value="2.00">
+    </div>
+    <div class="settings-slider">
+      <label>Contrast: <span id="contrastValue">1.9</span></label>
+      <input type="range" id="contrastSlider" min="0.5" max="3" step="0.1" value="1.9">
+    </div>
+    <div class="settings-slider">
+      <label>Brightness: <span id="brightnessValue">0.15</span></label>
+      <input type="range" id="brightnessSlider" min="-0.5" max="0.5" step="0.05" value="0.15">
+    </div>
+    <div class="settings-slider">
+      <label>Stroke Width: <span id="strokeWidthValue">8</span></label>
+      <input type="range" id="strokeWidthSlider" min="4" max="20" step="1" value="8">
+    </div>
+  </div>
 </div>
 
 <script src="libraries/socket.io.min.js"></script>
