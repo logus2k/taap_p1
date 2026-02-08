@@ -39,3 +39,13 @@
 5. Multiple Discriminators:
  - Ensemble of D networks
  - Can improve robustness
+
+
+
+| Strategy | FID (v8) | FID (v9) | Class-Consistency (v8) | Class-Consistency (v9) |
+|----------|----------|----------|------------------------|------------------------|
+| BCE | 7.74 | 7.91 | 97.64% | 97.66% |
+| LSGAN | 6.30 | 7.66 | 97.38% | 97.02% |
+| Hinge | 10.44 | 10.22 | 97.18% | 97.26% |
+| **WGAN-GP** | **68.03** | **4.93** | **71.02%** | **99.18%** |
+
