@@ -2,7 +2,6 @@
 // CONFIG
 // ============================================
 const CONFIG = {
-	strokeWidth: 8,
 	trialsPerRound: 10,
 	difficulty: {
 		basic: 2,
@@ -11,9 +10,20 @@ const CONFIG = {
 	}
 };
 
+// MNIST preview parameters (adjustable via debug sliders)
+const mnistParams = {
+	sigma: 0.7,
+	gamma: 2.00,
+	contrast: 1.9,
+	brightness: 0.15,
+	strokeWidth: 8
+};
+
 // ============================================
 // STATE
 // ============================================
+let selectedDigit = null;  // null = random mode
+
 let state = {
 	round: 1,
 	trial: 1,
@@ -71,7 +81,7 @@ socket.on("game_result", (data) => {
 // ============================================
 const canvas = document.getElementById("drawCanvas");
 const ctx = canvas.getContext("2d");
-ctx.lineWidth = CONFIG.strokeWidth;
+ctx.lineWidth = mnistParams.strokeWidth;
 ctx.lineCap = "round";
 ctx.lineJoin = "round";
 ctx.strokeStyle = "#fff";
@@ -269,7 +279,6 @@ canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); }, { 
 // DIGIT SELECTOR (toggleable - click to select/deselect)
 // ============================================
 const digitContainer = document.getElementById("digitButtons");
-let selectedDigit = null;  // null = random mode
 
 for (let i = 0; i <= 9; i++) {
 	const btn = document.createElement("button");
@@ -338,7 +347,7 @@ function triggerNewDigit() {
 // PREPROCESSING
 // ============================================
 
-// Live preview - no centering, with Gaussian blur for MNIST-like soft edges
+// Live preview - no centering, with configurable antialiasing
 function preprocessLive() {
 	const tmp = document.createElement("canvas");
 	tmp.width = 28;
@@ -350,22 +359,93 @@ function preprocessLive() {
 	// Scale to 28x28
 	tctx.drawImage(canvas, 0, 0, 28, 28);
 	
-	// Get image data and apply Gaussian blur
+	// Get image data
 	const img = tctx.getImageData(0, 0, 28, 28);
-	const blurred = gaussianBlur(img.data, 28, 28, 0.8);
+	
+	// Apply blur if sigma > 0
+	const processed = mnistParams.sigma > 0 
+		? gaussianBlur(img.data, 28, 28, mnistParams.sigma)
+		: img.data;
 	
 	const out = new Float32Array(784);
 	for (let i = 0; i < 784; i++) {
-		// Apply brightness boost: raise values to make strokes brighter
-		// while keeping soft edges
-		let val = blurred[i * 4] / 255;
-		// Boost mid-tones while preserving edges (power curve)
-		val = Math.pow(val, 0.6);
-		out[i] = Math.min(1.0, val);
+		let val = processed[i * 4] / 255;
+		
+		// Apply gamma
+		val = Math.pow(val, mnistParams.gamma);
+		
+		// Apply contrast (centered at 0.5)
+		val = (val - 0.5) * mnistParams.contrast + 0.5;
+		
+		// Apply brightness
+		val = val + mnistParams.brightness;
+		
+		out[i] = Math.max(0, Math.min(1.0, val));
 	}
 	
 	return out;
 }
+
+// Debug slider handlers
+function setupDebugSliders() {
+	const debugPanel = document.getElementById("debugPanel");
+	
+	// Show debug panel when MNIST View is checked
+	mnistViewToggle.addEventListener("change", () => {
+		if (mnistViewToggle.checked) {
+			debugPanel.classList.add("show");
+		} else {
+			debugPanel.classList.remove("show");
+		}
+	});
+	
+	// Sigma slider
+	const sigmaSlider = document.getElementById("sigmaSlider");
+	const sigmaValue = document.getElementById("sigmaValue");
+	sigmaSlider.addEventListener("input", () => {
+		mnistParams.sigma = parseFloat(sigmaSlider.value);
+		sigmaValue.textContent = mnistParams.sigma.toFixed(1);
+		if (mnistViewToggle.checked) updatePreview();
+	});
+	
+	// Gamma slider
+	const gammaSlider = document.getElementById("gammaSlider");
+	const gammaValue = document.getElementById("gammaValue");
+	gammaSlider.addEventListener("input", () => {
+		mnistParams.gamma = parseFloat(gammaSlider.value);
+		gammaValue.textContent = mnistParams.gamma.toFixed(2);
+		if (mnistViewToggle.checked) updatePreview();
+	});
+	
+	// Contrast slider
+	const contrastSlider = document.getElementById("contrastSlider");
+	const contrastValue = document.getElementById("contrastValue");
+	contrastSlider.addEventListener("input", () => {
+		mnistParams.contrast = parseFloat(contrastSlider.value);
+		contrastValue.textContent = mnistParams.contrast.toFixed(1);
+		if (mnistViewToggle.checked) updatePreview();
+	});
+	
+	// Brightness slider
+	const brightnessSlider = document.getElementById("brightnessSlider");
+	const brightnessValue = document.getElementById("brightnessValue");
+	brightnessSlider.addEventListener("input", () => {
+		mnistParams.brightness = parseFloat(brightnessSlider.value);
+		brightnessValue.textContent = mnistParams.brightness.toFixed(2);
+		if (mnistViewToggle.checked) updatePreview();
+	});
+	
+	// Stroke width slider
+	const strokeWidthSlider = document.getElementById("strokeWidthSlider");
+	const strokeWidthValue = document.getElementById("strokeWidthValue");
+	strokeWidthSlider.addEventListener("input", () => {
+		mnistParams.strokeWidth = parseInt(strokeWidthSlider.value);
+		strokeWidthValue.textContent = mnistParams.strokeWidth;
+		ctx.lineWidth = mnistParams.strokeWidth;
+	});
+}
+
+setupDebugSliders();
 
 // Simple Gaussian blur implementation
 function gaussianBlur(data, width, height, sigma) {

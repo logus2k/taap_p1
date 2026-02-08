@@ -404,6 +404,50 @@ header h1 {
 	color: var(--text);
 }
 
+/* Debug Panel */
+.debug-panel {
+	margin-top: 16px;
+	padding: 12px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	display: none;
+}
+
+.debug-panel.show {
+	display: block;
+}
+
+.debug-title {
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-dim);
+	margin-bottom: 12px;
+}
+
+.debug-slider {
+	margin-bottom: 10px;
+}
+
+.debug-slider label {
+	display: block;
+	font-size: 0.8rem;
+	color: var(--text);
+	margin-bottom: 4px;
+}
+
+.debug-slider label span {
+	font-family: 'JetBrains Mono', monospace;
+	color: var(--accent);
+}
+
+.debug-slider input[type="range"] {
+	width: 100%;
+	cursor: pointer;
+}
+
 .gen-canvas-container {
 	width: 280px;
 	height: 280px;
