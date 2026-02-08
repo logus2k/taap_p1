@@ -198,7 +198,7 @@ function getPos(e) {
 }
 
 function startDraw(e) {
-	if (state.judging) return;
+	if (state.judging || state.timeRemaining <= 0) return;
 	drawing = true;
 	const p = getPos(e);
 	lastX = p.x;
@@ -222,7 +222,7 @@ function endDraw() {
 }
 
 function draw(e) {
-	if (!drawing || state.judging) return;
+	if (!drawing || state.judging || state.timeRemaining <= 0) return;
 	const p = getPos(e);
 
 	// Interpolate for smoother strokes (MNIST-like)
@@ -338,35 +338,108 @@ function triggerNewDigit() {
 // PREPROCESSING
 // ============================================
 
-// Live preview - no centering, with antialiasing for MNIST-like soft edges
+// Live preview - no centering, with Gaussian blur for MNIST-like soft edges
 function preprocessLive() {
-	// Use intermediate canvas at 2x for better antialiasing
-	const intermediate = document.createElement("canvas");
-	intermediate.width = 56;
-	intermediate.height = 56;
-	const ictx = intermediate.getContext("2d");
-	ictx.imageSmoothingEnabled = true;
-	ictx.imageSmoothingQuality = "high";
-	
-	// First scale to 56x56
-	ictx.drawImage(canvas, 0, 0, 56, 56);
-	
-	// Then scale to 28x28 for extra smoothing
 	const tmp = document.createElement("canvas");
 	tmp.width = 28;
 	tmp.height = 28;
 	const tctx = tmp.getContext("2d");
 	tctx.imageSmoothingEnabled = true;
 	tctx.imageSmoothingQuality = "high";
-	tctx.drawImage(intermediate, 0, 0, 28, 28);
 	
+	// Scale to 28x28
+	tctx.drawImage(canvas, 0, 0, 28, 28);
+	
+	// Get image data and apply Gaussian blur
 	const img = tctx.getImageData(0, 0, 28, 28);
+	const blurred = gaussianBlur(img.data, 28, 28, 0.8);
+	
 	const out = new Float32Array(784);
 	for (let i = 0; i < 784; i++) {
-		out[i] = img.data[i * 4] / 255;
+		// Apply brightness boost: raise values to make strokes brighter
+		// while keeping soft edges
+		let val = blurred[i * 4] / 255;
+		// Boost mid-tones while preserving edges (power curve)
+		val = Math.pow(val, 0.6);
+		out[i] = Math.min(1.0, val);
 	}
 	
 	return out;
+}
+
+// Simple Gaussian blur implementation
+function gaussianBlur(data, width, height, sigma) {
+	const kernel = makeGaussianKernel(sigma);
+	const kSize = kernel.length;
+	const kHalf = Math.floor(kSize / 2);
+	
+	const result = new Uint8ClampedArray(data.length);
+	
+	// Horizontal pass
+	const temp = new Uint8ClampedArray(data.length);
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			let r = 0, g = 0, b = 0, a = 0, wSum = 0;
+			for (let k = 0; k < kSize; k++) {
+				const xi = Math.min(Math.max(x + k - kHalf, 0), width - 1);
+				const idx = (y * width + xi) * 4;
+				const w = kernel[k];
+				r += data[idx] * w;
+				g += data[idx + 1] * w;
+				b += data[idx + 2] * w;
+				a += data[idx + 3] * w;
+				wSum += w;
+			}
+			const idx = (y * width + x) * 4;
+			temp[idx] = r / wSum;
+			temp[idx + 1] = g / wSum;
+			temp[idx + 2] = b / wSum;
+			temp[idx + 3] = a / wSum;
+		}
+	}
+	
+	// Vertical pass
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			let r = 0, g = 0, b = 0, a = 0, wSum = 0;
+			for (let k = 0; k < kSize; k++) {
+				const yi = Math.min(Math.max(y + k - kHalf, 0), height - 1);
+				const idx = (yi * width + x) * 4;
+				const w = kernel[k];
+				r += temp[idx] * w;
+				g += temp[idx + 1] * w;
+				b += temp[idx + 2] * w;
+				a += temp[idx + 3] * w;
+				wSum += w;
+			}
+			const idx = (y * width + x) * 4;
+			result[idx] = r / wSum;
+			result[idx + 1] = g / wSum;
+			result[idx + 2] = b / wSum;
+			result[idx + 3] = a / wSum;
+		}
+	}
+	
+	return result;
+}
+
+function makeGaussianKernel(sigma) {
+	const size = Math.ceil(sigma * 3) * 2 + 1;
+	const kernel = new Array(size);
+	const mean = Math.floor(size / 2);
+	let sum = 0;
+	
+	for (let i = 0; i < size; i++) {
+		kernel[i] = Math.exp(-0.5 * Math.pow((i - mean) / sigma, 2));
+		sum += kernel[i];
+	}
+	
+	// Normalize
+	for (let i = 0; i < size; i++) {
+		kernel[i] /= sum;
+	}
+	
+	return kernel;
 }
 
 // Final preprocessing for submission - with centering (MNIST-style)
