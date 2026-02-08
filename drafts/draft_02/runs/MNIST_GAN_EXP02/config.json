@@ -1,0 +1,16 @@
+{
+  "SEED": 42,
+  "BATCH_SIZE": 256,
+  "LATENT_DIM": 100,
+  "NUM_STEPS": 15005,
+  "SAVE_INTERVAL": 1000,
+  "LOSS_SET": [
+    "bce",
+    "lsgan",
+    "hinge",
+    "wgan-gp"
+  ],
+  "LAMBDA_GP": 10.0,
+  "N_CRITIC": 5,
+  "NUM_EVAL_SAMPLES": 10000
+}
