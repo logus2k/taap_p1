@@ -3,6 +3,12 @@
 // ============================================
 const CONFIG = {
 	strokeWidth: 8,
+	trialsPerRound: 10,
+	difficulty: {
+		basic: 2,
+		average: 1,
+		pro: 0.5
+	}
 };
 
 // ============================================
@@ -10,13 +16,20 @@ const CONFIG = {
 // ============================================
 let state = {
 	round: 1,
+	trial: 1,
 	digit: null,
-	humanWins: 0,
-	genWins: 0,
-	humanTotal: 0,
-	genTotal: 0,
+	humanWins: 0,      // Trial wins this round
+	genWins: 0,        // Trial wins this round
+	humanRounds: 0,    // Round wins
+	genRounds: 0,      // Round wins
+	humanPct: 50.0,    // Tug-of-war percentage
+	genPct: 50.0,
 	hasDrawn: false,
 	judging: false,
+	currentDifficulty: 'basic',
+	timeLimit: CONFIG.difficulty.basic,
+	timerInterval: null,
+	timeRemaining: CONFIG.difficulty.basic,
 };
 
 // ============================================
@@ -30,6 +43,8 @@ const socket = io({
 socket.on("connect", () => {
 	document.getElementById("connDot").classList.add("connected");
 	document.getElementById("connText").textContent = "Connected";
+	// Set initial tug-of-war colors (tied = yellow)
+	updateTugOfWar();
 	// Start first round when connected
 	startNewRound();
 });
@@ -41,6 +56,7 @@ socket.on("disconnect", () => {
 
 socket.on("round_ready", (data) => {
 	// Generator has produced its digit - display it
+	console.log("[game] round_ready received, gen_image length:", data.gen_image ? data.gen_image.byteLength : "null");
 	displayGenImage(data.gen_image);
 	document.getElementById("genScoreDisplay").textContent = "Ready";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
@@ -107,17 +123,13 @@ const mnistDigitToggle = document.getElementById("mnistDigitToggle");
 mnistDigitToggle.addEventListener("change", () => {
 	const isMnist = mnistDigitToggle.checked;
 	
-	// Update all labels
-	document.getElementById("genCanvasLabel").textContent = 
+	// Update panel title
+	document.getElementById("genPanelTitle").textContent = 
 		isMnist ? "MNIST digit" : "AI-generated digit";
 	document.getElementById("tugGenLabel").textContent = 
 		isMnist ? "MNIST" : "Generator";
 	document.getElementById("genWinsLabel").textContent = 
 		isMnist ? "MNIST Wins" : "GAN Wins";
-	document.getElementById("genPanelTitle").textContent = 
-		isMnist ? "MNIST Sample" : "Generator Output";
-	document.getElementById("genIcon").textContent = 
-		isMnist ? "📊" : "⚡";
 	
 	// Restart current round with new source (keeps same digit)
 	if (state.digit !== null && !state.judging) {
@@ -193,6 +205,11 @@ function startDraw(e) {
 	lastY = p.y;
 	ctx.beginPath();
 	ctx.moveTo(p.x, p.y);
+	
+	// Start timer on first stroke
+	if (!state.hasDrawn && !state.timerInterval) {
+		startTimer();
+	}
 }
 
 function endDraw() {
@@ -404,21 +421,105 @@ function displayGenImage(imageData) {
 }
 
 // ============================================
+// TIMER
+// ============================================
+function startTimer() {
+	state.timeRemaining = state.timeLimit;
+	updateTimerDisplay();
+	
+	const timerDisplay = document.getElementById('timerDisplay');
+	timerDisplay.classList.add('active');
+	timerDisplay.classList.remove('warning');
+	
+	state.timerInterval = setInterval(() => {
+		state.timeRemaining -= 0.1;
+		updateTimerDisplay();
+		
+		// Warning when < 2 seconds
+		if (state.timeRemaining <= 2) {
+			timerDisplay.classList.add('warning');
+		}
+		
+		// Auto-submit when time runs out
+		if (state.timeRemaining <= 0) {
+			stopTimer();
+			autoSubmit();
+		}
+	}, 100);
+}
+
+function stopTimer() {
+	if (state.timerInterval) {
+		clearInterval(state.timerInterval);
+		state.timerInterval = null;
+	}
+	const timerDisplay = document.getElementById('timerDisplay');
+	timerDisplay.classList.remove('active', 'warning');
+}
+
+function updateTimerDisplay() {
+	const display = Math.max(0, state.timeRemaining).toFixed(1);
+	document.getElementById('timerValue').textContent = display;
+}
+
+function resetTimer() {
+	stopTimer();
+	state.timeRemaining = state.timeLimit;
+	updateTimerDisplay();
+}
+
+function autoSubmit() {
+	// Don't submit if already judging
+	if (state.judging) return;
+	
+	// If user has drawn something, submit it
+	// If user hasn't drawn anything, submit empty canvas (will lose)
+	state.judging = true;
+	stopTimer();
+	document.getElementById("judgeBtn").disabled = true;
+	document.getElementById("humanScoreDisplay").innerHTML = '<span class="waiting-dots">Time\'s up!</span>';
+
+	// Send drawing as binary Float32Array
+	const imageData = preprocess();
+	const buffer = imageData.buffer;
+
+	// Show MNIST-preprocessed view when judging
+	if (mnistViewToggle.checked) {
+		updatePreview();
+	}
+
+	socket.emit("judge_drawing", { image: buffer });
+}
+
+// ============================================
 // TUG OF WAR
 // ============================================
 function updateTugOfWar() {
-	const total = state.humanTotal + state.genTotal;
-	if (total === 0) {
-		document.getElementById("tugHumanScore").textContent = "50%";
-		document.getElementById("tugGenScore").textContent = "50%";
-		return;
+	const humanScoreEl = document.getElementById("tugHumanScore");
+	const genScoreEl = document.getElementById("tugGenScore");
+	
+	humanScoreEl.textContent = state.humanPct.toFixed(0) + "%";
+	genScoreEl.textContent = state.genPct.toFixed(0) + "%";
+	
+	// Show same percentage with full precision (6 decimals)
+	document.getElementById("tugHumanPrecise").textContent = state.humanPct.toFixed(6) + "%";
+	document.getElementById("tugGenPrecise").textContent = state.genPct.toFixed(6) + "%";
+	
+	// Update colors based on who's winning
+	humanScoreEl.classList.remove("winning", "losing", "tied");
+	genScoreEl.classList.remove("winning", "losing", "tied");
+	
+	if (state.humanPct > state.genPct) {
+		humanScoreEl.classList.add("winning");
+		genScoreEl.classList.add("losing");
+	} else if (state.genPct > state.humanPct) {
+		genScoreEl.classList.add("winning");
+		humanScoreEl.classList.add("losing");
+	} else {
+		// Tied - both yellow
+		humanScoreEl.classList.add("tied");
+		genScoreEl.classList.add("tied");
 	}
-
-	const humanPct = (state.humanTotal / total) * 100;
-	const genPct = (state.genTotal / total) * 100;
-
-	document.getElementById("tugHumanScore").textContent = humanPct.toFixed(0) + "%";
-	document.getElementById("tugGenScore").textContent = genPct.toFixed(0) + "%";
 }
 
 // ============================================
@@ -430,18 +531,33 @@ function showResult(humanScore, genScore) {
 	const hPct = humanScore * 100;
 	const gPct = genScore * 100;
 
-	// Update totals
-	state.humanTotal += hPct;
-	state.genTotal += gPct;
-
-	// Compare with full precision
+	// Calculate margin with full precision
 	const margin = hPct - gPct;
+	const absMargin = Math.abs(margin);
 	
+	console.log(`[game] Scores: Human=${hPct}%, Gen=${gPct}%, Margin=${margin}`);
+	
+	// Transfer margin from loser to winner (tug-of-war style)
+	if (margin > 0) {
+		// Human wins - transfer margin from gen to human
+		state.humanPct += absMargin;
+		state.genPct -= absMargin;
+	} else if (margin < 0) {
+		// Gen wins - transfer margin from human to gen
+		state.genPct += absMargin;
+		state.humanPct -= absMargin;
+	}
+	// Ties: no transfer
+	
+	// Clamp to valid range [0, 100]
+	state.humanPct = Math.max(0, Math.min(100, state.humanPct));
+	state.genPct = Math.max(0, Math.min(100, state.genPct));
+
 	// Choose decimal places based on margin size
 	let decimals;
-	if (Math.abs(margin) < 0.01) {
+	if (absMargin < 0.01) {
 		decimals = 4;
-	} else if (Math.abs(margin) < 0.1) {
+	} else if (absMargin < 0.1) {
 		decimals = 2;
 	} else {
 		decimals = 1;
@@ -468,13 +584,13 @@ function showResult(humanScore, genScore) {
 	if (hPct > gPct) {
 		state.humanWins++;
 		resultEl.className = "round-result win";
-		resultEl.textContent = `You Win! (+${margin.toFixed(decimals)}%)`;
+		resultEl.textContent = `You Win! (+${absMargin.toFixed(decimals)}%)`;
 		humanPanel.classList.add("winner");
 		genPanel.classList.add("loser");
 	} else if (hPct < gPct) {
 		state.genWins++;
 		resultEl.className = "round-result lose";
-		resultEl.textContent = `${opponentName} Wins (${margin.toFixed(decimals)}%)`;
+		resultEl.textContent = `${opponentName} Wins (-${absMargin.toFixed(decimals)}%)`;
 		humanPanel.classList.add("loser");
 		genPanel.classList.add("winner");
 	} else {
@@ -489,15 +605,23 @@ function showResult(humanScore, genScore) {
 	document.getElementById("genWins").textContent = state.genWins;
 	updateTugOfWar();
 
-	// Show Next button
-	document.getElementById("judgeBtn").style.display = "none";
-	document.getElementById("nextBtn").style.display = "block";
+	// Check if round is complete
+	if (state.trial >= CONFIG.trialsPerRound) {
+		// Round complete - determine winner
+		setTimeout(() => {
+			endRound();
+		}, 1500);
+	} else {
+		// Show Next button
+		document.getElementById("judgeBtn").style.display = "none";
+		document.getElementById("nextBtn").style.display = "block";
+	}
 }
 
 // ============================================
 // ROUND MANAGEMENT
 // ============================================
-function startNewRound() {
+function startNewTrial() {
 	// Use selected digit or pick random
 	state.digit = selectedDigit !== null ? selectedDigit : Math.floor(Math.random() * 10);
 
@@ -515,6 +639,9 @@ function startNewRound() {
 	state.hasDrawn = false;
 	state.judging = false;
 	canvas.classList.remove("active");
+	
+	// Reset timer
+	resetTimer();
 
 	// Reset UI
 	document.getElementById("judgeBtn").disabled = true;
@@ -522,6 +649,9 @@ function startNewRound() {
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
 	document.getElementById("genScoreDisplay").textContent = "Generating...";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
+	
+	// Update trial display
+	document.getElementById("trialDisplay").textContent = `${state.trial}/${CONFIG.trialsPerRound}`;
 	
 	// Clear round result
 	const resultEl = document.getElementById("roundResult");
@@ -539,21 +669,112 @@ function startNewRound() {
 	socket.emit("start_round", { digit: state.digit, use_mnist: useMnist });
 }
 
-function nextRound() {
+// Alias for backward compatibility
+function startNewRound() {
+	startNewTrial();
+}
+
+function nextTrial() {
 	// Hide Next, show Judge
 	document.getElementById("nextBtn").style.display = "none";
 	document.getElementById("judgeBtn").style.display = "block";
 
-	state.round++;
-	document.getElementById("roundDisplay").textContent = state.round;
-	startNewRound();
+	state.trial++;
+	startNewTrial();
 }
 
-function resetRound() {
+function endRound() {
+	// Determine round winner based on tug-of-war
+	let roundWinner;
+	if (state.humanPct > state.genPct) {
+		state.humanRounds++;
+		roundWinner = 'human';
+	} else if (state.genPct > state.humanPct) {
+		state.genRounds++;
+		roundWinner = 'gen';
+	} else {
+		roundWinner = 'tie';
+	}
+	
+	// Update round wins display
+	document.getElementById("roundWins").textContent = `${state.humanRounds} - ${state.genRounds}`;
+	
+	// Show round result overlay
+	showRoundEndOverlay(roundWinner);
+}
+
+function showRoundEndOverlay(winner) {
+	const overlay = document.getElementById("resultOverlay");
+	const badge = document.getElementById("resultBadge");
+	const title = document.getElementById("resultTitle");
+	const margin = document.getElementById("resultMargin");
+	const humanScore = document.getElementById("resultHumanScore");
+	const genScore = document.getElementById("resultGenScore");
+	
+	const pctDiff = Math.abs(state.humanPct - state.genPct).toFixed(2);
+	
+	if (winner === 'human') {
+		badge.className = "result-badge win";
+		badge.textContent = "Victory";
+		title.textContent = "You Won the Round!";
+		margin.innerHTML = `Final: <span class="positive">${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%</span>`;
+	} else if (winner === 'gen') {
+		const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
+		badge.className = "result-badge lose";
+		badge.textContent = "Defeat";
+		title.textContent = `${opponentName} Won the Round`;
+		margin.innerHTML = `Final: <span class="negative">${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%</span>`;
+	} else {
+		badge.className = "result-badge tie";
+		badge.textContent = "Draw";
+		title.textContent = "Round Tied!";
+		margin.innerHTML = `Final: ${state.humanPct.toFixed(2)}% - ${state.genPct.toFixed(2)}%`;
+	}
+	
+	humanScore.textContent = `${state.humanWins} wins`;
+	genScore.textContent = `${state.genWins} wins`;
+	
+	overlay.classList.add("show");
+}
+
+function startNextRound() {
+	// Hide overlay
+	document.getElementById("resultOverlay").classList.remove("show");
+	
+	// Reset for new round
+	state.round++;
+	state.trial = 1;
+	state.humanWins = 0;
+	state.genWins = 0;
+	state.humanPct = 50.0;
+	state.genPct = 50.0;
+	
+	// Update displays
+	document.getElementById("roundDisplay").textContent = state.round;
+	document.getElementById("humanWins").textContent = "0";
+	document.getElementById("genWins").textContent = "0";
+	updateTugOfWar();
+	
+	// Reset button visibility
+	document.getElementById("nextBtn").style.display = "none";
+	document.getElementById("judgeBtn").style.display = "block";
+	
+	startNewTrial();
+}
+
+function nextRound() {
+	// Alias - now calls nextTrial
+	nextTrial();
+}
+
+function resetTrial() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	genCtx.clearRect(0, 0, genCanvas.width, genCanvas.height);
 
 	state.hasDrawn = false;
+	
+	// Reset timer
+	resetTimer();
 
 	canvas.classList.remove("active");
 	document.getElementById("judgeBtn").disabled = true;
@@ -572,29 +793,54 @@ function resetRound() {
 	resultEl.textContent = "";
 }
 
+// Alias for backward compatibility  
+function resetRound() {
+	resetTrial();
+}
+
 function resetGame() {
+	// Stop any running timer
+	stopTimer();
+	
 	state = {
 		round: 1,
+		trial: 1,
 		digit: null,
 		humanWins: 0,
 		genWins: 0,
-		humanTotal: 0,
-		genTotal: 0,
+		humanRounds: 0,
+		genRounds: 0,
+		humanPct: 50.0,
+		genPct: 50.0,
 		hasDrawn: false,
 		judging: false,
+		currentDifficulty: state.currentDifficulty,
+		timeLimit: state.timeLimit,
+		timerInterval: null,
+		timeRemaining: state.timeLimit,
 	};
 
 	document.getElementById("roundDisplay").textContent = "1";
+	document.getElementById("trialDisplay").textContent = `1/${CONFIG.trialsPerRound}`;
+	document.getElementById("roundWins").textContent = "0 - 0";
 	document.getElementById("humanWins").textContent = "0";
 	document.getElementById("genWins").textContent = "0";
 	document.getElementById("tugHumanScore").textContent = "50%";
 	document.getElementById("tugGenScore").textContent = "50%";
+	document.getElementById("tugHumanPrecise").textContent = "50.000000%";
+	document.getElementById("tugGenPrecise").textContent = "50.000000%";
+	
+	// Reset timer display
+	updateTimerDisplay();
 	
 	// Reset button visibility
 	document.getElementById("nextBtn").style.display = "none";
 	document.getElementById("judgeBtn").style.display = "block";
+	
+	// Hide overlay if showing
+	document.getElementById("resultOverlay").classList.remove("show");
 
-	startNewRound();
+	startNewTrial();
 }
 
 // ============================================
@@ -604,6 +850,7 @@ document.getElementById("judgeBtn").onclick = () => {
 	if (state.digit === null || !state.hasDrawn || state.judging) return;
 
 	state.judging = true;
+	stopTimer();
 	document.getElementById("judgeBtn").disabled = true;
 	document.getElementById("humanScoreDisplay").innerHTML = '<span class="waiting-dots">Judging</span>';
 
@@ -620,8 +867,28 @@ document.getElementById("judgeBtn").onclick = () => {
 };
 
 document.getElementById("clearBtn").onclick = () => {
-	if (!state.judging) resetRound();
+	if (!state.judging) resetTrial();
 };
 
-document.getElementById("nextBtn").onclick = nextRound;
-document.getElementById("resultNextBtn").onclick = nextRound;
+document.getElementById("nextBtn").onclick = nextTrial;
+document.getElementById("resultNextBtn").onclick = startNextRound;
+
+// ============================================
+// DIFFICULTY SELECTOR
+// ============================================
+document.querySelectorAll(".difficulty-btn").forEach(btn => {
+	btn.addEventListener("click", () => {
+		// Update selection
+		document.querySelectorAll(".difficulty-btn").forEach(b => b.classList.remove("selected"));
+		btn.classList.add("selected");
+		
+		// Update state using CONFIG values
+		const level = btn.dataset.level;
+		state.currentDifficulty = level;
+		state.timeLimit = CONFIG.difficulty[level];
+		state.timeRemaining = state.timeLimit;
+		
+		// Reset game with new difficulty
+		resetGame();
+	});
+});
