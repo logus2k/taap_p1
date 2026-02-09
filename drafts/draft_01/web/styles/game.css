@@ -672,9 +672,6 @@ header {
 	opacity: 1;
 }
 
-.timer-display.warning {
-}
-
 .timer-value {
 	font-family: 'JetBrains Mono', monospace;
 	font-size: 1.5rem;
