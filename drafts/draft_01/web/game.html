@@ -54,7 +54,7 @@
 
   <!-- Digit Selector -->
   <div class="digit-selector">
-    <div class="digit-selector-header">Target Digit (randomly selected)</div>
+    <div class="digit-selector-header">Target Digit <span class="selection-mode">randomly</span> selected</div>
     <div class="digit-buttons" id="digitButtons"></div>
   </div>
 
@@ -63,8 +63,8 @@
     <!-- Generator Panel (LEFT) -->
     <div class="player-panel gen">
       <div class="player-header">
-        <div class="player-title" id="genPanelTitle">Generator</div>
-        <div class="player-score waiting" id="genScoreDisplay">—</div>
+        <div class="player-title" id="genPanelTitle">GENERATOR</div>
+        <div class="player-score" id="genScoreDisplay"></div>
       </div>
       <div class="gen-canvas-container">
         <canvas id="genCanvas" width="280" height="280"></canvas>
@@ -79,18 +79,18 @@
     <!-- VS Section -->
     <div class="vs-section">
       <div class="round-result" id="roundResult"></div>
+      <div class="vs-divider">VS</div>
       <div class="timer-display" id="timerDisplay">
         <div class="timer-value" id="timerValue">6.0</div>
         <div class="timer-label">seconds</div>
       </div>
-      <div class="vs-divider">VS</div>
     </div>
 
     <!-- Human Panel (RIGHT) -->
     <div class="player-panel human">
       <div class="player-header">
-        <div class="player-title">Your Drawing</div>
-        <div class="player-score waiting" id="humanScoreDisplay">—</div>
+        <div class="player-title">HUMAN</div>
+        <div class="player-score" id="humanScoreDisplay"></div>
       </div>
       <div class="canvas-container">
         <canvas id="drawCanvas" width="280" height="280"></canvas>

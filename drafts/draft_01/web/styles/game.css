@@ -190,11 +190,11 @@ header {
 }
 
 .trial-indicator .label {
-	font-size: 0.75rem;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	color: var(--text-dim);
-	margin-bottom: 8px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #1d1d1d;
+    margin-bottom: 8px;
 }
 
 .trial-indicator .trial {
@@ -225,7 +225,7 @@ header {
     font-family: 'Inter', sans-serif;
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--text-dim);
+    color: #464646;
     cursor: pointer;
     transition: all 0.15s;
     box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
@@ -238,7 +238,7 @@ header {
 
 .difficulty-btn.selected {
     background: #54b072;
-    border-style: inset;
+    border: 1px inset #cecece;
     color: #e9ff00;
 }
 
@@ -251,6 +251,10 @@ header {
     text-align: center;
 }
 
+.selection-mode {
+    color: #fe2121;
+}
+
 .digit-buttons {
 	display: flex;
 	justify-content: center;
@@ -258,18 +262,18 @@ header {
 }
 
 .digit-btn {
-	width: 44px;
-	height: 44px;
-	border-radius: 8px;
-	border: 1px solid var(--border);
-	background: var(--bg);
-	font-family: 'JetBrains Mono', monospace;
-	font-size: 1.1rem;
-	font-weight: 600;
-	color: var(--text-dim);
-	cursor: pointer;
-	transition: all 0.15s;
-	box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #464646;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
 }
 
 .digit-btn:hover {
@@ -280,7 +284,7 @@ header {
 .digit-btn.selected {
     background: #54b072;
     color: #e9ff00;
-    border-style: inset;
+    border: 1px inset #eeeeee;
 }
 
 /* Game Area */
@@ -299,19 +303,18 @@ header {
     background: #ca8a0426;
     background-image: url('../images/low-contrast-linen.png');
     background-repeat: repeat;
-    border: 0.5px solid var(--border);
+    border: 1px inset #dedede;
     border-radius: 10px;
-    padding: 15px 20px;
+    padding: 10px 15px;
     transition: background-color 0.3s ease;
-    box-shadow: rgba(50, 50, 93, 0.25) 0px 13px 27px -5px, rgba(0, 0, 0, 0.3) 0px 8px 16px -8px;
 }
 
 .player-panel.winner {
-	background: #16a34a26;
+	background: #16a34a60;
 }
 
 .player-panel.loser {
-	background: #dc262626;
+	background: #dc262660;
 }
 
 .player-panel.tie {
@@ -327,7 +330,7 @@ header {
 }
 
 .player-title {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: #a74600;
 }
@@ -348,7 +351,7 @@ header {
     position: relative;
     width: 287px;
     height: 287px;
-    margin: 0 auto 16px;
+    margin: 0 auto 10px;
     border-radius: 10px;
     overflow: hidden;
     border: 4px solid #ffb130;
@@ -570,7 +573,7 @@ header {
     position: relative;
     width: 280px;
     height: 280px;
-    margin: 0 auto 16px;
+    margin: 0 auto 10px;
     border: 4px solid #ffb130;
     border-radius: 10px;
     overflow: hidden;
@@ -695,16 +698,17 @@ header {
 
 /* Round Result Indicator */
 .round-result {
-	font-size: 0.9rem;
-	font-weight: 600;
-	padding: 8px 16px;
-	border-radius: 6px;
-	text-align: center;
-	min-height: 36px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin-bottom: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-align: center;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    min-width: 140px;
 }
 
 .round-result.win {
@@ -857,18 +861,19 @@ header {
 
 /* Connection Status - TOP LEFT */
 .connection {
-	position: fixed;
-	top: 16px;
-	right: 16px;
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	background: var(--surface);
-	border: 1px solid var(--border);
-	padding: 8px 12px;
-	border-radius: 6px;
-	font-size: 0.75rem;
-	color: var(--text-dim);
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    box-shadow: rgba(0, 0, 0, 0.16) 0px 1px 4px;
 }
 
 .connection-dot {

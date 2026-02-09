@@ -70,7 +70,7 @@ socket.on("round_ready", (data) => {
 	// Generator has produced its digit - display it
 	console.log("[game] round_ready received, gen_image length:", data.gen_image ? data.gen_image.byteLength : "null");
 	displayGenImage(data.gen_image);
-	document.getElementById("genScoreDisplay").textContent = "—";
+	document.getElementById("genScoreDisplay").textContent = "";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
 });
 
@@ -169,7 +169,7 @@ mnistDigitToggle.addEventListener("change", () => {
 	
 	// Update panel title
 	document.getElementById("genPanelTitle").textContent = 
-		isMnist ? "MNIST Sample" : "Generator";
+		isMnist ? "MNIST DATASET" : "GENERATOR";
 	document.getElementById("tugGenLabel").textContent = 
 		isMnist ? "MNIST" : "Generator";
 	document.getElementById("genWinsLabel").textContent = 
@@ -182,7 +182,7 @@ mnistDigitToggle.addEventListener("change", () => {
 		previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
 		state.hasDrawn = false;
 		canvas.classList.remove("active");
-		document.getElementById("humanScoreDisplay").textContent = "—";
+		document.getElementById("humanScoreDisplay").textContent = "";
 		document.getElementById("humanScoreDisplay").classList.add("waiting");
 		document.getElementById("genScoreDisplay").textContent = "...";
 		document.getElementById("genScoreDisplay").classList.add("waiting");
@@ -322,13 +322,13 @@ for (let i = 0; i <= 9; i++) {
 			// Deselect - go back to random mode
 			selectedDigit = null;
 			btn.classList.remove("selected");
-			document.querySelector(".digit-selector-header").textContent = "Target Digit (randomly selected)";
+			document.querySelector(".digit-selector-header").innerHTML = "Target Digit <span class=\"selection-mode\">randomly</span> selected";
 		} else {
 			// Select this digit
 			document.querySelectorAll(".digit-btn").forEach(b => b.classList.remove("selected"));
 			selectedDigit = i;
 			btn.classList.add("selected");
-			document.querySelector(".digit-selector-header").textContent = "Target Digit (manually selected)";
+			document.querySelector(".digit-selector-header").innerHTML = "Target Digit <span class=\"selection-mode\">manually</span> selected";
 		}
 		
 		// Trigger new round with selected/random digit
@@ -358,7 +358,7 @@ function triggerNewDigit() {
 	canvas.classList.remove("active");
 	
 	// Reset UI
-	document.getElementById("humanScoreDisplay").textContent = "—";
+	document.getElementById("humanScoreDisplay").textContent = "";
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
 	document.getElementById("genScoreDisplay").textContent = "...";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
@@ -902,7 +902,7 @@ function startNewTrial() {
 	resetTimer();
 
 	// Reset UI
-	document.getElementById("humanScoreDisplay").textContent = "—";
+	document.getElementById("humanScoreDisplay").textContent = "";
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
 	document.getElementById("genScoreDisplay").textContent = "...";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
@@ -1019,9 +1019,9 @@ function resetTrial() {
 	resetTimer();
 
 	canvas.classList.remove("active");
-	document.getElementById("humanScoreDisplay").textContent = "—";
+	document.getElementById("humanScoreDisplay").textContent = "";
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
-	document.getElementById("genScoreDisplay").textContent = "—";
+	document.getElementById("genScoreDisplay").textContent = "";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
 	
 	// Clear panel result colors
