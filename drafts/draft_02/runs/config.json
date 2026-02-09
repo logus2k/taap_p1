@@ -2,7 +2,7 @@
   "SEED": 42,
   "BATCH_SIZE": 512,
   "LATENT_DIM": 100,
-  "NUM_STEPS": 15005,
+  "NUM_STEPS": 30010,
   "SAVE_INTERVAL": 1000,
   "LOSS_SET": [
     "bce",
