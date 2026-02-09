@@ -10,7 +10,7 @@
 <body>
 <div class="container">
   <header>
-    <h1>GAN vs Human</h1>
+    <img src="images/gan_vs_human.png" alt="GAN vs Human" class="title-image">
     <p class="subtitle">Draw a digit. Beat the Generator. Fool the Classifier.</p>
   </header>
 
@@ -63,53 +63,44 @@
     <!-- Generator Panel (LEFT) -->
     <div class="player-panel gen">
       <div class="player-header">
-        <div class="player-title" id="genPanelTitle">AI-generated digit</div>
+        <div class="player-title" id="genPanelTitle">Generator</div>
+        <div class="player-score waiting" id="genScoreDisplay">—</div>
       </div>
       <div class="gen-canvas-container">
         <canvas id="genCanvas" width="280" height="280"></canvas>
         <canvas id="genGridCanvas" width="280" height="280"></canvas>
       </div>
-      <div class="d-score">
-        <div class="d-score-label">Classifier Score</div>
-        <div class="d-score-value waiting" id="genScoreDisplay">—</div>
-      </div>
+      <label class="panel-toggle">
+        <input type="checkbox" id="mnistDigitToggle">
+        <span>Use MNIST Dataset</span>
+      </label>
     </div>
 
     <!-- VS Section -->
     <div class="vs-section">
-      <div class="vs-divider">VS</div>
+      <div class="round-result" id="roundResult"></div>
       <div class="timer-display" id="timerDisplay">
         <div class="timer-value" id="timerValue">6.0</div>
         <div class="timer-label">seconds</div>
       </div>
-      <button class="action-btn btn-judge" id="judgeBtn" disabled>Judge</button>
-      <button class="action-btn btn-clear" id="clearBtn">Clear</button>
-      <button class="action-btn btn-next" id="nextBtn" style="display: none;">Next</button>
-      <div class="round-result" id="roundResult"></div>
-      <label class="preview-toggle">
-        <input type="checkbox" id="mnistViewToggle">
-        <span>MNIST View</span>
-      </label>
-      <label class="preview-toggle">
-        <input type="checkbox" id="mnistDigitToggle">
-        <span>MNIST Digit</span>
-      </label>
+      <div class="vs-divider">VS</div>
     </div>
 
     <!-- Human Panel (RIGHT) -->
     <div class="player-panel human">
       <div class="player-header">
-        <div class="player-title">Draw the selected digit</div>
+        <div class="player-title">Your Drawing</div>
+        <div class="player-score waiting" id="humanScoreDisplay">—</div>
       </div>
       <div class="canvas-container">
         <canvas id="drawCanvas" width="280" height="280"></canvas>
         <canvas id="previewCanvas" width="280" height="280"></canvas>
         <canvas id="gridCanvas" width="280" height="280"></canvas>
       </div>
-      <div class="d-score">
-        <div class="d-score-label">Classifier Score</div>
-        <div class="d-score-value waiting" id="humanScoreDisplay">—</div>
-      </div>
+      <label class="panel-toggle">
+        <input type="checkbox" id="mnistViewToggle">
+        <span>Show Grid</span>
+      </label>
     </div>
   </div>
 </div>

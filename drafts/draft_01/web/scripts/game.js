@@ -70,7 +70,7 @@ socket.on("round_ready", (data) => {
 	// Generator has produced its digit - display it
 	console.log("[game] round_ready received, gen_image length:", data.gen_image ? data.gen_image.byteLength : "null");
 	displayGenImage(data.gen_image);
-	document.getElementById("genScoreDisplay").textContent = "Ready";
+	document.getElementById("genScoreDisplay").textContent = "—";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
 });
 
@@ -169,7 +169,7 @@ mnistDigitToggle.addEventListener("change", () => {
 	
 	// Update panel title
 	document.getElementById("genPanelTitle").textContent = 
-		isMnist ? "MNIST digit" : "AI-generated digit";
+		isMnist ? "MNIST Sample" : "Generator";
 	document.getElementById("tugGenLabel").textContent = 
 		isMnist ? "MNIST" : "Generator";
 	document.getElementById("genWinsLabel").textContent = 
@@ -182,10 +182,9 @@ mnistDigitToggle.addEventListener("change", () => {
 		previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
 		state.hasDrawn = false;
 		canvas.classList.remove("active");
-		document.getElementById("judgeBtn").disabled = true;
-		document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+		document.getElementById("humanScoreDisplay").textContent = "—";
 		document.getElementById("humanScoreDisplay").classList.add("waiting");
-		document.getElementById("genScoreDisplay").textContent = "Generating...";
+		document.getElementById("genScoreDisplay").textContent = "...";
 		document.getElementById("genScoreDisplay").classList.add("waiting");
 		
 		socket.emit("start_round", { digit: state.digit, use_mnist: isMnist });
@@ -258,10 +257,10 @@ function startDraw(e) {
 
 function endDraw() {
 	drawing = false;
-	if (state.hasDrawn) {
+	if (state.hasDrawn && !state.judging && state.timeRemaining > 0) {
 		canvas.classList.add("active");
-		document.getElementById("judgeBtn").disabled = false;
-		// Keep showing raw preview - MNIST view only shown after judging
+		// Auto-submit after a brief delay to allow for multi-stroke drawings
+		// Timer will handle submission if it expires first
 	}
 }
 
@@ -359,10 +358,9 @@ function triggerNewDigit() {
 	canvas.classList.remove("active");
 	
 	// Reset UI
-	document.getElementById("judgeBtn").disabled = true;
-	document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+	document.getElementById("humanScoreDisplay").textContent = "—";
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
-	document.getElementById("genScoreDisplay").textContent = "Generating...";
+	document.getElementById("genScoreDisplay").textContent = "...";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
 	
 	// Clear result indicator and panel colors
@@ -704,7 +702,6 @@ function autoSubmit() {
 	// If user hasn't drawn anything, submit empty canvas (will lose)
 	state.judging = true;
 	stopTimer();
-	document.getElementById("judgeBtn").disabled = true;
 	document.getElementById("humanScoreDisplay").innerHTML = '<span class="waiting-dots">Time\'s up!</span>';
 
 	// Send drawing as binary Float32Array
@@ -872,9 +869,10 @@ function showResult(humanScore, genScore) {
 			endRound();
 		}, 1500);
 	} else {
-		// Show Next button
-		document.getElementById("judgeBtn").style.display = "none";
-		document.getElementById("nextBtn").style.display = "block";
+		// Auto-advance to next trial after delay
+		setTimeout(() => {
+			advanceToNextTrial();
+		}, 1500);
 	}
 }
 
@@ -904,10 +902,9 @@ function startNewTrial() {
 	resetTimer();
 
 	// Reset UI
-	document.getElementById("judgeBtn").disabled = true;
-	document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+	document.getElementById("humanScoreDisplay").textContent = "—";
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
-	document.getElementById("genScoreDisplay").textContent = "Generating...";
+	document.getElementById("genScoreDisplay").textContent = "...";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
 	
 	// Update trial display
@@ -931,15 +928,6 @@ function startNewTrial() {
 
 // Alias for backward compatibility
 function startNewRound() {
-	startNewTrial();
-}
-
-function nextTrial() {
-	// Hide Next, show Judge
-	document.getElementById("nextBtn").style.display = "none";
-	document.getElementById("judgeBtn").style.display = "block";
-
-	state.trial++;
 	startNewTrial();
 }
 
@@ -1018,16 +1006,7 @@ function startNextRound() {
 	document.getElementById("genMargin").classList.remove("positive", "negative");
 	updateTugOfWar();
 	
-	// Reset button visibility
-	document.getElementById("nextBtn").style.display = "none";
-	document.getElementById("judgeBtn").style.display = "block";
-	
 	startNewTrial();
-}
-
-function nextRound() {
-	// Alias - now calls nextTrial
-	nextTrial();
 }
 
 function resetTrial() {
@@ -1040,10 +1019,9 @@ function resetTrial() {
 	resetTimer();
 
 	canvas.classList.remove("active");
-	document.getElementById("judgeBtn").disabled = true;
-	document.getElementById("humanScoreDisplay").textContent = "Draw to compete";
+	document.getElementById("humanScoreDisplay").textContent = "—";
 	document.getElementById("humanScoreDisplay").classList.add("waiting");
-	document.getElementById("genScoreDisplay").textContent = "Ready";
+	document.getElementById("genScoreDisplay").textContent = "—";
 	document.getElementById("genScoreDisplay").classList.add("waiting");
 	
 	// Clear panel result colors
@@ -1098,10 +1076,6 @@ function resetGame() {
 	// Reset timer display
 	updateTimerDisplay();
 	
-	// Reset button visibility
-	document.getElementById("nextBtn").style.display = "none";
-	document.getElementById("judgeBtn").style.display = "block";
-	
 	// Hide overlay if showing
 	document.getElementById("resultOverlay").classList.remove("show");
 
@@ -1109,14 +1083,13 @@ function resetGame() {
 }
 
 // ============================================
-// BUTTONS
+// SUBMISSION
 // ============================================
-document.getElementById("judgeBtn").onclick = () => {
+function submitDrawing() {
 	if (state.digit === null || !state.hasDrawn || state.judging) return;
 
 	state.judging = true;
 	stopTimer();
-	document.getElementById("judgeBtn").disabled = true;
 	document.getElementById("humanScoreDisplay").innerHTML = '<span class="waiting-dots">Judging</span>';
 
 	// Send drawing as binary Float32Array
@@ -1129,13 +1102,24 @@ document.getElementById("judgeBtn").onclick = () => {
 	}
 
 	socket.emit("judge_drawing", { image: buffer });
-};
+}
 
-document.getElementById("clearBtn").onclick = () => {
-	if (!state.judging) resetTrial();
-};
+function advanceToNextTrial() {
+	state.trial++;
+	document.getElementById("trialDisplay").textContent = `${state.trial}/${CONFIG.trialsPerRound}`;
+	
+	// Clear result colors
+	document.querySelector(".player-panel.human").classList.remove("winner", "loser", "tie");
+	document.querySelector(".player-panel.gen").classList.remove("winner", "loser", "tie");
+	
+	// Clear round result indicator
+	const resultEl = document.getElementById("roundResult");
+	resultEl.className = "round-result";
+	resultEl.textContent = "";
+	
+	startNewTrial();
+}
 
-document.getElementById("nextBtn").onclick = nextTrial;
 document.getElementById("resultNextBtn").onclick = startNextRound;
 
 // ============================================
