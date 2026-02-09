@@ -66,11 +66,11 @@ header {
 
 /* Tug of War Section */
 .tug-of-war {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 24px;
-	margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 20px;
 }
 
 .tug-score-display {
@@ -127,11 +127,12 @@ header {
 
 /* Score Cards */
 .score-section {
-	display: flex;
-	justify-content: center;
-	align-items: stretch;
-	gap: 16px;
-	margin-bottom: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 16px;
+    margin-bottom: 15px;
+    height: 80px;
 }
 
 .score-card {
@@ -206,15 +207,15 @@ header {
 
 /* Digit Selector */
 .digit-selector {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 /* Difficulty Selector */
 .difficulty-selector {
-	display: flex;
-	justify-content: center;
-	gap: 10px;
-	margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
 }
 
 .difficulty-btn {
@@ -349,8 +350,8 @@ header {
 /* Canvas */
 .canvas-container {
     position: relative;
-    width: 287px;
-    height: 287px;
+    width: 280px;
+    height: 280px;
     margin: 0 auto 10px;
     border-radius: 10px;
     overflow: hidden;
@@ -615,18 +616,19 @@ header {
 }
 
 .vs-divider {
-	width: 48px;
-	height: 48px;
-	border-radius: 50%;
-	background: var(--surface-2);
-	border: 1px solid var(--border);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 0.9rem;
-	font-weight: 700;
-	color: var(--text-dim);
-	margin-bottom: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #ca8a0499;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #333333;
+    margin-bottom: 16px;
+    box-shadow: rgba(0, 0, 0, 0.12) 0px 1px 3px, rgba(0, 0, 0, 0.24) 0px 1px 2px;
 }
 
 .toggle-row {
@@ -662,9 +664,6 @@ header {
 	text-align: center;
 	margin-bottom: 16px;
 	padding: 12px 20px;
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: 8px;
 	opacity: 0.4;
 	transition: opacity 0.2s;
 }
@@ -674,8 +673,6 @@ header {
 }
 
 .timer-display.warning {
-	background: rgba(220, 38, 38, 0.1);
-	border-color: var(--lose);
 }
 
 .timer-value {
@@ -701,7 +698,6 @@ header {
     font-size: 0.9rem;
     font-weight: 600;
     padding: 8px 16px;
-    border-radius: 6px;
     text-align: center;
     min-height: 80px;
     display: flex;
@@ -712,17 +708,14 @@ header {
 }
 
 .round-result.win {
-	background: rgba(22, 163, 74, 0.15);
 	color: var(--win);
 }
 
 .round-result.lose {
-	background: rgba(220, 38, 38, 0.15);
 	color: var(--lose);
 }
 
 .round-result.tie {
-	background: rgba(202, 138, 4, 0.15);
 	color: var(--tie);
 }
 
