@@ -4,7 +4,7 @@ Human vs GAN - Standalone Game Server
 
 Usage:
     python run_game.py
-    python run_game.py --port 8993 --strategy bce
+    python run_game.py --port 8993 --strategy wgan-gp
     python run_game.py --classifier ./classifier/mnist_cnn_best.ckpt
 
 Then open http://localhost:8993 in your browser.
@@ -355,9 +355,9 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Server host")
     parser.add_argument("--model-dir", default="./model/cgan", help="Directory containing model files")
     parser.add_argument("--mnist-dir", default="../../dataset", help="Directory containing MNIST dataset")
-    parser.add_argument("--classifier", default="../../drafts/draft_01/classifier/mnist_cnn_calibrated_best.ckpt", 
+    parser.add_argument("--classifier", default="./classifier/model/mnist_cnn_best.ckpt", 
                         help="Path to classifier checkpoint")
-    parser.add_argument("--strategy", default="bce", choices=["bce", "lsgan", "hinge", "wgan-gp"],
+    parser.add_argument("--strategy", default="wgan-gp", choices=["bce", "lsgan", "hinge", "wgan-gp"],
                         help="Which trained strategy to use")
     parser.add_argument("--latent-dim", type=int, default=100, help="Latent dimension")
     parser.add_argument("--cpu", action="store_true", help="Force CPU even if CUDA available")
