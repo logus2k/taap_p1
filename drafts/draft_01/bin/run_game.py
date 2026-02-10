@@ -32,9 +32,13 @@ from fastapi.staticfiles import StaticFiles
 class Generator(nn.Module):
     """Generator with PixelShuffle upsampling and ICNR initialization."""
     
-    def __init__(self, latent_dim=100, num_classes=10):
+    def __init__(self, latent_dim=100, num_classes=10, conditional=True):
         super().__init__()
-        self.label_embedding = nn.Embedding(num_classes, latent_dim)
+        self.conditional = conditional
+        self.latent_dim = latent_dim
+        
+        if conditional:
+            self.label_embedding = nn.Embedding(num_classes, latent_dim)
         
         self.fc = nn.Sequential(
             nn.Linear(latent_dim, 128 * 7 * 7),
@@ -52,9 +56,11 @@ class Generator(nn.Module):
         
         self.output_conv = nn.Conv2d(64, 1, kernel_size=3, padding=1)
     
-    def forward(self, z, labels):
-        label_embed = self.label_embedding(labels).squeeze(1)
-        x = self.fc(z * label_embed)
+    def forward(self, z, labels=None):
+        if self.conditional and labels is not None:
+            label_embed = self.label_embedding(labels)
+            z = z * label_embed
+        x = self.fc(z)
         x = x.view(-1, 128, 7, 7)
         
         x = torch.relu(self.bn1(self.ps1(self.conv1(x))))
@@ -216,7 +222,8 @@ async def start_round(sid, data):
     print(f"[game] use_mnist={use_mnist}, mnist_dataset={mnist_dataset is not None}, digit_indices={digit_indices is not None}")
     
     try:
-        label = torch.tensor([[digit]], device=device)  # Shape: (1, 1) as used in training
+        # Shape: (1,) - 1D tensor as used in training
+        label = torch.tensor([digit], device=device).long()
         
         if use_mnist and mnist_dataset is not None and digit_indices is not None:
             # Use real MNIST digit
@@ -233,7 +240,11 @@ async def start_round(sid, data):
             
             with torch.no_grad():
                 z = torch.randn(1, latent_dim, device=device)
-                gen_tensor = g_model(z, label)
+                # Pass label only if model is conditional
+                if g_model.conditional:
+                    gen_tensor = g_model(z, label)
+                else:
+                    gen_tensor = g_model(z)
             source = "Generator"
         
         # Store for later scoring
@@ -460,8 +471,24 @@ def main():
                 print(f"         - {f.name}")
         return
     
-    g_model = Generator(latent_dim=latent_dim).to(device)
-    g_model.load_state_dict(torch.load(g_path, map_location=device, weights_only=True))
+    # Load checkpoint and detect format
+    checkpoint = torch.load(g_path, map_location=device, weights_only=False)
+    
+    # Determine if this is a full checkpoint or raw state_dict
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        # Full checkpoint format (from our checkpoint system)
+        state_dict = checkpoint["model_state_dict"]
+        # Check if model was conditional based on presence of label_embedding
+        is_conditional = any("label_embedding" in k for k in state_dict.keys())
+        print(f"[game] Detected checkpoint format (conditional={is_conditional})")
+    else:
+        # Raw state_dict format
+        state_dict = checkpoint
+        is_conditional = any("label_embedding" in k for k in state_dict.keys())
+        print(f"[game] Detected raw state_dict format (conditional={is_conditional})")
+    
+    g_model = Generator(latent_dim=latent_dim, conditional=is_conditional).to(device)
+    g_model.load_state_dict(state_dict)
     g_model.eval()
     print(f"[game] Loaded generator: {g_path}")
     
