@@ -1,0 +1,149 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
+  <diagram name="GAN Architecture" id="gan-arch">
+    <mxGraphModel dx="1425" dy="829" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" value="GAN Training Framework - Class Architecture" vertex="1">
+          <mxGeometry height="30" width="400" x="330" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="loss-strategy" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;&lt;abstract&gt;&gt;&#xa;GANLossStrategy" vertex="1">
+          <mxGeometry height="120" width="200" x="420" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="loss-attrs" parent="loss-strategy" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ use_sigmoid: bool&#xa;+ n_critic: int" vertex="1">
+          <mxGeometry height="35" width="200" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="loss-sep" parent="loss-strategy" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="200" y="75" as="geometry" />
+        </mxCell>
+        <mxCell id="loss-methods" parent="loss-strategy" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ d_loss_real() / d_loss_fake()&#xa;+ g_loss() / gradient_penalty()" vertex="1">
+          <mxGeometry height="37" width="200" y="83" as="geometry" />
+        </mxCell>
+        <mxCell id="bce" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" value="BCELossStrategy" vertex="1">
+          <mxGeometry height="50" width="130" x="180" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="bce-attr" parent="bce" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=10;" value="use_sigmoid = True" vertex="1">
+          <mxGeometry height="24" width="130" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="lsgan" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" value="LSGANLossStrategy" vertex="1">
+          <mxGeometry height="50" width="130" x="330" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="lsgan-attr" parent="lsgan" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=10;" value="use_sigmoid = False" vertex="1">
+          <mxGeometry height="24" width="130" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="hinge" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" value="HingeLossStrategy" vertex="1">
+          <mxGeometry height="50" width="130" x="480" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="hinge-attr" parent="hinge" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=10;" value="use_sigmoid = False" vertex="1">
+          <mxGeometry height="24" width="130" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="wgangp" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" value="WGANGPLossStrategy" vertex="1">
+          <mxGeometry height="50" width="140" x="630" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="wgangp-attr" parent="wgangp" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=10;" value="n_critic = 5, lambda_gp" vertex="1">
+          <mxGeometry height="24" width="140" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="inh1" edge="1" parent="1" source="bce" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=0;strokeWidth=1;" target="loss-strategy">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="245" y="220" />
+              <mxPoint x="520" y="220" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="generator" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#fff2cc;strokeColor=#d6b656;" value="Generator" vertex="1">
+          <mxGeometry height="90" width="180" x="180" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="gen-attrs" parent="generator" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ conditional: bool&#xa;+ label_embedding (if cond)" vertex="1">
+          <mxGeometry height="34" width="180" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="gen-sep" parent="generator" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="180" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="gen-methods" parent="generator" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ forward(z, labels=None)" vertex="1">
+          <mxGeometry height="22" width="180" y="68" as="geometry" />
+        </mxCell>
+        <mxCell id="discriminator" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" value="Discriminator" vertex="1">
+          <mxGeometry height="90" width="180" x="390" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-attrs" parent="discriminator" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ conditional: bool&#xa;+ use_sigmoid: bool" vertex="1">
+          <mxGeometry height="34" width="180" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-sep" parent="discriminator" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="180" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-methods" parent="discriminator" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ forward(img, labels=None)" vertex="1">
+          <mxGeometry height="22" width="180" y="68" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-wgan" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" value="DiscriminatorWGAN" vertex="1">
+          <mxGeometry height="90" width="180" x="590" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-wgan-attrs" parent="disc-wgan" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ conditional: bool&#xa;+ LayerNorm (no SN/Dropout)" vertex="1">
+          <mxGeometry height="34" width="180" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-wgan-sep" parent="disc-wgan" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
+          <mxGeometry height="8" width="180" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="disc-wgan-methods" parent="disc-wgan" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="+ forward(img, labels=None)" vertex="1">
+          <mxGeometry height="22" width="180" y="68" as="geometry" />
+        </mxCell>
+        <mxCell id="factories" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Factory Functions" vertex="1">
+          <mxGeometry height="80" width="200" x="800" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="factory-methods" parent="factories" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="get_loss_strategy(name, ...)&#xa;get_discriminator(strategy, ...)&#xa;get_adam_betas(strategy)" vertex="1">
+          <mxGeometry height="54" width="200" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="config" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Configuration" vertex="1">
+          <mxGeometry height="80" width="200" x="800" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="config-attrs" parent="config" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="CONDITIONAL = True/False&#xa;BENCHMARK_STRATEGIES = [...]&#xa;LR_D, LR_G, N_CRITIC, ..." vertex="1">
+          <mxGeometry height="54" width="200" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="fac-arrow1" edge="1" parent="1" source="factories" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeWidth=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="loss-attrs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fac-arrow2" edge="1" parent="1" source="factory-methods" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeWidth=1;exitX=0.5;exitY=1.037;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="discriminator">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="320" />
+              <mxPoint x="480" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="b9LF2CNAFkY0E_0jVQ9S-5" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=0;strokeWidth=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="220" />
+              <mxPoint x="520" y="220" />
+              <mxPoint x="520" y="190" />
+            </Array>
+            <mxPoint x="390" y="240" as="sourcePoint" />
+            <mxPoint x="520" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="b9LF2CNAFkY0E_0jVQ9S-9" edge="1" parent="1" source="hinge" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=0;strokeWidth=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="545" y="220" />
+              <mxPoint x="520" y="220" />
+              <mxPoint x="520" y="190" />
+            </Array>
+            <mxPoint x="552.54" y="229.94" as="sourcePoint" />
+            <mxPoint x="520" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="b9LF2CNAFkY0E_0jVQ9S-11" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=0;strokeWidth=1;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="240" />
+              <mxPoint x="700" y="220" />
+              <mxPoint x="520" y="220" />
+            </Array>
+            <mxPoint x="700" y="240" as="sourcePoint" />
+            <mxPoint x="520" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
