@@ -961,23 +961,39 @@ function showRoundEndOverlay(winner) {
 	const humanScore = document.getElementById("resultHumanScore");
 	const genScore = document.getElementById("resultGenScore");
 	const genLabel = document.getElementById("resultGenLabel");
+	const medal = document.getElementById("resultMedal");
 	
 	const opponentName = document.getElementById("mnistDigitToggle").checked ? "MNIST" : "GAN";
 	genLabel.textContent = `${opponentName} Score`;
 	
+	// Get difficulty level name (capitalize first letter)
+	const levelName = state.currentDifficulty.charAt(0).toUpperCase() + state.currentDifficulty.slice(1);
+	
+	// Medal mapping: pro=gold, average=silver, basic=bronze
+	const medalMap = {
+		'pro': 'images/gold_medal.svg',
+		'average': 'images/silver_medal.svg',
+		'basic': 'images/bronze_medal.svg'
+	};
+	
+	// Show medal only for human victory
 	if (winner === 'human') {
+		medal.src = medalMap[state.currentDifficulty];
+		medal.style.display = 'block';
 		badge.className = "result-badge win";
-		badge.textContent = "Victory";
-		title.textContent = "You Won the Round!";
+		badge.textContent = `${levelName} Level`;
+		title.textContent = "Victory!";
 		margin.innerHTML = `Final: <span class="positive">${state.humanTrialWins} - ${state.genTrialWins}</span>`;
 	} else if (winner === 'gen') {
+		medal.style.display = 'none';
 		badge.className = "result-badge lose";
-		badge.textContent = "Defeat";
-		title.textContent = `${opponentName} Won the Round`;
+		badge.textContent = `${levelName} Level`;
+		title.textContent = `${opponentName} Wins`;
 		margin.innerHTML = `Final: <span class="negative">${state.humanTrialWins} - ${state.genTrialWins}</span>`;
 	} else {
+		medal.style.display = 'none';
 		badge.className = "result-badge tie";
-		badge.textContent = "Draw";
+		badge.textContent = `${levelName} Level`;
 		title.textContent = "Round Tied!";
 		margin.innerHTML = `Final: ${state.humanTrialWins} - ${state.genTrialWins}`;
 	}
@@ -1072,10 +1088,10 @@ function resetGame() {
 	document.getElementById("genMargin").textContent = "+0.00%";
 	document.getElementById("humanMargin").classList.remove("positive", "negative");
 	document.getElementById("genMargin").classList.remove("positive", "negative");
-	document.getElementById("tugHumanScore").textContent = "50%";
-	document.getElementById("tugGenScore").textContent = "50%";
-	document.getElementById("tugHumanPrecise").textContent = "50.000000%";
-	document.getElementById("tugGenPrecise").textContent = "50.000000%";
+	document.getElementById("tugHumanScore").textContent = "0";
+	document.getElementById("tugGenScore").textContent = "0";
+	document.getElementById("tugHumanPrecise").textContent = "0 wins";
+	document.getElementById("tugGenPrecise").textContent = "0 wins";
 	
 	// Reset timer display
 	updateTimerDisplay();

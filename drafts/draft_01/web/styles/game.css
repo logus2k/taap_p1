@@ -755,6 +755,13 @@ header {
 	}
 }
 
+.result-medal {
+	width: 80px;
+	height: 80px;
+	margin: 0 auto 12px auto;
+	display: block;
+}
+
 .result-badge {
 	display: inline-block;
 	padding: 6px 16px;
