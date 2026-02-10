@@ -48,7 +48,7 @@ let state = {
 // SOCKET
 // ============================================
 const socket = io({
-	path: window.location.pathname.startsWith("/gan_game") ? "/gan_game/socket.io" : "/socket.io",
+	path: window.location.pathname.startsWith("/gan") ? "/gan/socket.io" : "/socket.io",
 	transports: ["websocket"]
 });
 
@@ -173,7 +173,7 @@ mnistDigitToggle.addEventListener("change", () => {
 	document.getElementById("tugGenLabel").textContent = 
 		isMnist ? "MNIST" : "Generator";
 	document.getElementById("genWinsLabel").textContent = 
-		isMnist ? "MNIST Margin" : "GAN Margin";
+		isMnist ? "MNIST Avg Margin" : "GAN Avg Margin";
 	
 	// Restart current round with new source (keeps same digit)
 	if (state.digit !== null && !state.judging) {
@@ -723,9 +723,13 @@ function updateMarginDisplay() {
 	const humanMarginEl = document.getElementById("humanMargin");
 	const genMarginEl = document.getElementById("genMargin");
 	
+	// Calculate average margin (total margin / trials won)
+	const avgHumanMargin = state.humanTrialWins > 0 ? state.humanMargin / state.humanTrialWins : 0;
+	const avgGenMargin = state.genTrialWins > 0 ? state.genMargin / state.genTrialWins : 0;
+	
 	// Format with sign and 2 decimal places
-	const humanText = (state.humanMargin >= 0 ? "+" : "") + state.humanMargin.toFixed(2) + "%";
-	const genText = (state.genMargin >= 0 ? "+" : "") + state.genMargin.toFixed(2) + "%";
+	const humanText = (avgHumanMargin >= 0 ? "+" : "") + avgHumanMargin.toFixed(2) + "%";
+	const genText = (avgGenMargin >= 0 ? "+" : "") + avgGenMargin.toFixed(2) + "%";
 	
 	humanMarginEl.textContent = humanText;
 	genMarginEl.textContent = genText;
@@ -734,10 +738,10 @@ function updateMarginDisplay() {
 	humanMarginEl.classList.remove("positive", "negative");
 	genMarginEl.classList.remove("positive", "negative");
 	
-	if (state.humanMargin > state.genMargin) {
+	if (avgHumanMargin > avgGenMargin) {
 		humanMarginEl.classList.add("positive");
 		genMarginEl.classList.add("negative");
-	} else if (state.genMargin > state.humanMargin) {
+	} else if (avgGenMargin > avgHumanMargin) {
 		genMarginEl.classList.add("positive");
 		humanMarginEl.classList.add("negative");
 	}
