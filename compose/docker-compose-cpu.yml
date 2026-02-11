@@ -1,9 +1,9 @@
 services:
   femulator:
     restart: unless-stopped
-    image: logus2k/femulator:latest
-    container_name: femulator
-    hostname: femulator
+    image: logus2k/gan_game:latest
+    container_name: gan_game
+    hostname: gan_game
     logging:
       options:
         max-size: "10m"
@@ -11,9 +11,9 @@ services:
     ports:
       - "5868:5868"
     networks:
-      - femulator_network
+      - gan_network
 
 networks:
   femulator_network:
     external: true
-    name: femulator_network
+    name: gan_network

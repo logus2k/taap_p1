@@ -25,6 +25,9 @@ const strategyPills = document.getElementById("strategyPills");
 const resultsSection = document.getElementById("resultsSection");
 const resultsBody = document.getElementById("resultsBody");
 const emaToggle = document.getElementById("emaToggle");
+const fidVal = document.getElementById("fidVal");
+const fidStep = document.getElementById("fidStep");
+const fidChartSection = document.getElementById("fidChartSection");
 
 let grid = null;
 let cells = [];
@@ -54,6 +57,10 @@ let gLossData = [];
 let dLossData = [];
 let gLossDataRaw = []; // Store raw data for toggle
 let dLossDataRaw = [];
+
+// FID Chart setup
+let fidChart = null;
+let fidData = [];
 
 // EMA calculation
 function ema(data, alpha = 0.1) {
@@ -260,6 +267,14 @@ socket.on("strategy_start", (data) => {
   dLossDataRaw = [];
   chart.setOption({ series: [{ data: gLossData }, { data: dLossData }] });
   
+  // Reset FID data for new strategy
+  fidData = [];
+  fidVal.textContent = "—";
+  fidStep.textContent = "";
+  if (fidChart) {
+    fidChart.setOption({ series: [{ data: [] }] });
+  }
+  
   updateStrategyPills();
 });
 
@@ -274,8 +289,7 @@ function ensureGrid(count) {
   grid = document.createElement("div");
   grid.className = "image-grid";
 
-  const cols = Math.ceil(Math.sqrt(count));
-  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  // CSS controls grid-template-columns (4 columns)
 
   cells = [];
   for (let i = 0; i < count; i++) {
@@ -378,4 +392,64 @@ socket.on("done", () => {
   
   progressBar.style.width = '100%';
   progressText.textContent = 'Benchmark Complete';
+});
+
+// FID update handler
+socket.on("fid_update", (data) => {
+  const { step, fid } = data;
+  
+  // Show FID display
+  document.getElementById("fidDisplay").style.display = 'block';
+  
+  // Update display
+  fidVal.textContent = fid.toFixed(2);
+  fidStep.textContent = `@ step ${step.toLocaleString()}`;
+  
+  // Add to chart data
+  fidData.push([step, fid]);
+  
+  // Initialize FID chart if needed
+  if (!fidChart) {
+    fidChartSection.style.display = 'block';
+    fidChart = echarts.init(document.getElementById("fidChart"), null, { renderer: "svg" });
+    
+    fidChart.setOption({
+      backgroundColor: "transparent",
+      grid: { top: 20, right: 20, bottom: 36, left: 50 },
+      xAxis: {
+        type: "value",
+        name: "Step",
+        nameLocation: "center",
+        nameGap: 24,
+        nameTextStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 },
+        axisLine: { lineStyle: { color: "#1e1e26" } },
+        axisLabel: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 9 },
+        splitLine: { lineStyle: { color: "#1e1e26" } }
+      },
+      yAxis: {
+        type: "value",
+        name: "FID",
+        nameLocation: "center",
+        nameGap: 36,
+        nameTextStyle: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 10 },
+        axisLine: { lineStyle: { color: "#1e1e26" } },
+        axisLabel: { color: "#5a5a6a", fontFamily: "JetBrains Mono", fontSize: 9 },
+        splitLine: { lineStyle: { color: "#1e1e26" } }
+      },
+      series: [{
+        type: "line",
+        data: fidData,
+        smooth: true,
+        symbol: "circle",
+        symbolSize: 6,
+        lineStyle: { color: "#06b6d4", width: 2 },
+        itemStyle: { color: "#06b6d4" }
+      }],
+      animation: false
+    });
+    
+    window.addEventListener("resize", () => fidChart.resize());
+  } else {
+    fidChart.setOption({ series: [{ data: fidData }] });
+  }
 });

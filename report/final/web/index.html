@@ -12,14 +12,10 @@
 <div class="container">
   <header>
     <h1>GAN Benchmark Monitor</h1>
-    <div class="status">
-      <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">connecting</span>
-    </div>
     <div class="header-right">
-      <div class="elapsed">
-        <span class="elapsed-label">Total Time</span>
-        <span class="elapsed-value" id="elapsedVal">00:00:00</span>
+      <div class="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">connecting</span>
       </div>
     </div>
   </header>
@@ -39,7 +35,13 @@
       </div>
       <div class="progress-text" id="progressText">Step 0 / 0</div>
     </div>
-    <div class="strategy-pills" id="strategyPills"></div>
+    <div class="progress-footer">
+      <div class="strategy-pills" id="strategyPills"></div>
+      <div class="elapsed">
+        <span class="elapsed-label">Total Time</span>
+        <span class="elapsed-value" id="elapsedVal">00:00:00</span>
+      </div>
+    </div>
   </div>
 
   <div class="main-grid">
@@ -64,6 +66,13 @@
         </div>
       </div>
 
+      <!-- Live FID -->
+      <div class="fid-display" id="fidDisplay" style="display: none;">
+        <div class="fid-label">Live FID</div>
+        <div class="fid-value" id="fidVal">—</div>
+        <div class="fid-step" id="fidStep"></div>
+      </div>
+
       <!-- Generator Output -->
       <div class="section">
         <h2>Generator Output</h2>
@@ -84,6 +93,12 @@
           </label>
         </div>
         <div id="lossChart"></div>
+      </div>
+
+      <!-- FID Chart -->
+      <div class="section" id="fidChartSection" style="display: none;">
+        <h2>FID History</h2>
+        <div id="fidChart"></div>
       </div>
 
       <!-- Results Table -->
