@@ -1,6 +1,6 @@
-# FEMulator Pro v1.0
+# "GAN vs. Human" Game
 
-A containerized deployment of the Femulator Pro application. This setup allows you to run the Femulator environment with all dependencies pre-configured.
+A containerized deployment of the "GAN vs. Human" game. This setup allows you to run the game environment with all dependencies pre-configured.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ Create a folder on your computer and save the following content into a file name
 ```yaml
 services:
   femulator:
-    image: logus2k/gan_game:latest
+    image: logus2k/gan_game
     container_name: gan_game
     hostname: gan_game
     restart: unless-stopped
@@ -31,9 +31,9 @@ services:
         max-size: "10m"
         max-file: "3"
     ports:
-      - "5868:5868"
+      - "8993:8993"
     networks:
-      - femulator_network
+      - gan_game_network
 
 networks:
   femulator_network:
@@ -49,7 +49,7 @@ docker-compose up -d
 
 ```
 
-The application will download the necessary images and start. You can now access the service via `localhost:5868`.
+The application will download the necessary images and start. You can now access the service via `localhost:8993`.
 
 ---
 
