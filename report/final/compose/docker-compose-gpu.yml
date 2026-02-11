@@ -1,9 +1,16 @@
 services:
-  femulator:
+  gan_game:
     restart: unless-stopped
     image: logus2k/gan_game:latest
     container_name: gan_game
     hostname: gan_game
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: "all"
+              capabilities: [ gpu ]
     logging:
       options:
         max-size: "10m"

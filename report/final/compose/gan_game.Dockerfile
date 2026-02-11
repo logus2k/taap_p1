@@ -7,6 +7,6 @@ COPY src/ ./
 
 WORKDIR /src/app/server
 
-EXPOSE 5868
+EXPOSE 8993
 
-CMD ["uvicorn", "fem_api_server:socket_app", "--host", "0.0.0.0", "--port", "8993"]
+CMD ["uvicorn", "run_game:socket_app", "--host", "0.0.0.0", "--port", "8993"]

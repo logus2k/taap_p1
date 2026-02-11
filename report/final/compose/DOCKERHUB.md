@@ -4,7 +4,7 @@ A containerized deployment of the "GAN vs. Human" game. This setup allows you to
 
 ## Quick Start
 
-The easiest way to run Femulator is using **Docker Compose**. 
+An easy way to run "GAN vs. Human" game is using **Docker Compose**. 
 
 ### 1. Prerequisites
 * Install **Docker Desktop** (Windows/Mac) or **Docker Engine** (Linux). [Get Docker here](https://docs.docker.com/get-docker/).
@@ -14,7 +14,7 @@ Create a folder on your computer and save the following content into a file name
 
 ```yaml
 services:
-  femulator:
+  gan_game:
     image: logus2k/gan_game
     container_name: gan_game
     hostname: gan_game
@@ -36,7 +36,7 @@ services:
       - gan_game_network
 
 networks:
-  femulator_network:
+  gan_game_network:
     driver: bridge
 ```
 
@@ -58,7 +58,7 @@ The application will download the necessary images and start. You can now access
 **View Application Logs** If you need to check the status or troubleshoot:
 
 ```bash
-docker logs -f femulator
+docker logs -f gan_game
 
 ```
 

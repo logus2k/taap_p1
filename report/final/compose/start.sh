@@ -4,9 +4,9 @@ set -e
 # -------------------------------------------------
 # Ensure network exists
 # -------------------------------------------------
-if ! docker network inspect femulator_network >/dev/null 2>&1; then
-	echo "Creating femulator_network..."
-	docker network create femulator_network
+if ! docker network inspect gan_game_network >/dev/null 2>&1; then
+	echo "Creating gan_game_network..."
+	docker network create gan_game_network
 fi
 
 # -------------------------------------------------

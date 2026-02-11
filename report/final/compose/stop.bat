@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-echo [%TIME%] Stopping FEMulator containers...
+echo [%TIME%] Stopping "GAN vs. Human" game containers...
 
 :: Stop containers using both compose files (safe & deterministic)
 docker compose -f docker-compose-gpu.yml down >nul 2>&1
