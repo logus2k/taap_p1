@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>GAN vs Human, An Adversarial Challenge</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles/game.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <img src="images/gan_vs_human.png" alt="GAN vs Human" class="title-image">
+    <p class="subtitle">Draw a digit. Beat the Generator. Fool the Classifier.</p>
+  </header>
+
+  <!-- Tug of War with Image -->
+  <div class="tug-of-war">
+    <div class="tug-score-display">
+      <div class="tug-score-label" id="tugGenLabel">Generator</div>
+      <div class="tug-score-value" id="tugGenScore">50%</div>
+      <div class="tug-score-precise" id="tugGenPrecise">0.00</div>
+    </div>
+    <img src="images/tug_of_war3.png" alt="Tug of War" class="tug-image">
+    <div class="tug-score-display">
+      <div class="tug-score-label">Human</div>
+      <div class="tug-score-value" id="tugHumanScore">50%</div>
+      <div class="tug-score-precise" id="tugHumanPrecise">0.00</div>
+    </div>
+  </div>
+
+  <!-- Score Section -->
+  <div class="score-section">
+    <div class="score-card" style="display:none;">
+      <div class="label" id="genWinsLabel">GAN Avg Margin</div>
+      <div class="margin-value" id="genMargin">+0.00%</div>
+    </div>
+    <div class="trial-indicator">
+      <div class="label">Trial</div>
+      <div class="trial" id="trialDisplay">1/10</div>
+    </div>
+    <div class="score-card" style="display:none;">
+      <div class="label">Human Avg Margin</div>
+      <div class="margin-value" id="humanMargin">+0.00%</div>
+    </div>
+  </div>
+
+  <!-- Difficulty Selector -->
+  <div class="difficulty-selector">
+    <button class="difficulty-btn selected" data-level="basic" data-time="6">Basic</button>
+    <button class="difficulty-btn" data-level="average" data-time="3">Average</button>
+    <button class="difficulty-btn" data-level="pro" data-time="1.5">Pro</button>
+  </div>
+
+  <!-- Digit Selector -->
+  <div class="digit-selector">
+    <div class="digit-selector-header">Target Digit <span class="selection-mode">randomly</span> selected</div>
+    <div class="digit-buttons" id="digitButtons"></div>
+  </div>
+
+  <!-- Game Area -->
+  <div class="game-area">
+    <!-- Generator Panel (LEFT) -->
+    <div class="player-panel gen">
+      <div class="player-header">
+        <div class="player-title" id="genPanelTitle">GENERATOR</div>
+        <div class="player-score" id="genScoreDisplay"></div>
+      </div>
+      <div class="gen-canvas-container">
+        <canvas id="genCanvas" width="280" height="280"></canvas>
+        <canvas id="genGridCanvas" width="280" height="280"></canvas>
+      </div>
+      <label class="panel-toggle">
+        <input type="checkbox" id="mnistDigitToggle">
+        <span>MNIST Dataset</span>
+      </label>
+    </div>
+
+    <!-- VS Section -->
+    <div class="vs-section">
+      <div class="round-result" id="roundResult"></div>
+      <div class="vs-divider">VS</div>
+      <div class="timer-display" id="timerDisplay">
+        <div class="timer-value" id="timerValue">6.0</div>
+        <div class="timer-label">seconds</div>
+      </div>
+    </div>
+
+    <!-- Human Panel (RIGHT) -->
+    <div class="player-panel human">
+      <div class="player-header">
+        <div class="player-title">HUMAN</div>
+        <div class="player-score" id="humanScoreDisplay"></div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="drawCanvas" width="280" height="280"></canvas>
+        <canvas id="previewCanvas" width="280" height="280"></canvas>
+        <canvas id="gridCanvas" width="280" height="280"></canvas>
+      </div>
+      <label class="panel-toggle">
+        <input type="checkbox" id="mnistViewToggle">
+        <span>MNIST Style</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-card">
+    <img class="result-medal" id="resultMedal" src="" alt="Medal" style="display:none;">
+    <div class="result-badge" id="resultBadge">Victory</div>
+    <div class="result-title" id="resultTitle">You Win!</div>
+    <div class="result-margin" id="resultMargin">Margin: <span class="positive">+12.4%</span></div>
+    <div class="result-scores">
+      <div class="result-score-item">
+        <div class="result-score-label" id="resultGenLabel">GAN Score</div>
+        <div class="result-score-value gen" id="resultGenScore">72.8%</div>
+      </div>
+      <div class="result-score-item">
+        <div class="result-score-label">Your Score</div>
+        <div class="result-score-value human" id="resultHumanScore">85.2%</div>
+      </div>
+    </div>
+    <button class="result-btn" id="resultNextBtn">Continue</button>
+  </div>
+</div>
+
+<!-- Connection Status -->
+<div class="connection">
+  <div class="connection-dot" id="connDot"></div>
+  <span id="connText">Connecting</span>
+</div>
+
+<!-- Settings Gear -->
+<button class="settings-gear" id="settingsGear">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"></circle>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+  </svg>
+</button>
+
+<!-- Settings Panel -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <span>SETTINGS</span>
+    <button class="settings-close" id="settingsClose">&times;</button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">MNIST Preview</div>
+    <div class="settings-slider">
+      <label>Sigma: <span id="sigmaValue">0.7</span></label>
+      <input type="range" id="sigmaSlider" min="0" max="2" step="0.1" value="0.7">
+    </div>
+    <div class="settings-slider">
+      <label>Gamma: <span id="gammaValue">2.00</span></label>
+      <input type="range" id="gammaSlider" min="0.1" max="5" step="0.05" value="2.00">
+    </div>
+    <div class="settings-slider">
+      <label>Contrast: <span id="contrastValue">1.9</span></label>
+      <input type="range" id="contrastSlider" min="0.5" max="3" step="0.1" value="1.9">
+    </div>
+    <div class="settings-slider">
+      <label>Brightness: <span id="brightnessValue">0.15</span></label>
+      <input type="range" id="brightnessSlider" min="-0.5" max="0.5" step="0.05" value="0.15">
+    </div>
+    <div class="settings-slider">
+      <label>Stroke Width: <span id="strokeWidthValue">8</span></label>
+      <input type="range" id="strokeWidthSlider" min="4" max="20" step="1" value="8">
+    </div>
+  </div>
+</div>
+
+<script src="libraries/socket.io.min.js"></script>
+<script src="scripts/game.js"></script>
+</body>
+</html>
