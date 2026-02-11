@@ -15,9 +15,9 @@ Create a folder on your computer and save the following content into a file name
 ```yaml
 services:
   femulator:
-    image: logus2k/femulator:latest
-    container_name: femulator
-    hostname: femulator
+    image: logus2k/gan_game:latest
+    container_name: gan_game
+    hostname: gan_game
     restart: unless-stopped
     deploy:
       resources:

@@ -1,8 +1,10 @@
-# Docker Containers User Manual (Windows & Linux)
+# "GAN vs. Human" - Docker User Manual
+
+---
 
 ## 1. Overview
 
-The **FEMulator Pro** can be distributed as a containerized application using **Docker**.
+The **GAN vs. Human** game can be distributed as a containerized application using **Docker**.
 To simplify usage, all Docker operations are wrapped in **platform-specific helper scripts**.
 
 **NOTE**: Users never need to type Docker commands manually.
@@ -43,8 +45,8 @@ project-root/
 ├── docker-compose-cpu.yml        # CPU-only container definition (all OS)
 ├── docker-compose-gpu.yml        # GPU-enabled container definition (all OS)
 │
-├── femulator.Dockerfile          # Main application image (all OS)
-├── femulator.server.Dockerfile   # Base/server image (all OS)
+├── gan_game.Dockerfile          # Main application image (all OS)
+├── gan_game.server.Dockerfile   # Base/server image (all OS)
 │
 ├── start.bat                     # Windows start script
 ├── stop.bat                      # Windows stop script
@@ -114,7 +116,7 @@ Each section below clearly states **which file Windows users run and which file 
 ### 6.1 Start the Application
 
 **Purpose:**
-Starts FEMulator Pro.
+Starts "GAN vs. Human" game.
 
 **Windows users:**
 
@@ -220,7 +222,7 @@ rebuild_all.bat
 
 * Stops containers
 * Removes containers
-* Removes all FEMulator images
+* Removes all "GAN vs. Human" game images
 * Rebuilds everything with no cache
 
 **When to use:**
@@ -234,7 +236,7 @@ rebuild_all.bat
 ### 6.5 Remove Everything (Uninstall)
 
 **Purpose:**
-Completely removes FEMulator Pro from Docker.
+Completely removes "GAN vs. Human" game from Docker.
 
 **Windows users:**
 
@@ -253,7 +255,7 @@ remove_all.bat
 * Stops containers
 * Deletes containers
 * Deletes images
-* Leaves no FEMulator artifacts behind
+* Leaves no "GAN vs. Human" game artifacts behind
 
 ---
 

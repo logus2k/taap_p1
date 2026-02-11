@@ -1,6 +1,6 @@
 # Docker Scripts Usage Manual
 
-This repository contains scripts to manage Docker containers and images for the **FEMulator Pro** application. Below is a guide on how to use each script.
+This repository contains scripts to manage Docker containers and images for the **"GAN vs. Human"** game. Below is a guide on how to use each script.
 
 ---
 
@@ -24,14 +24,14 @@ This repository contains scripts to manage Docker containers and images for the 
 ## Prerequisites
 - Docker and Docker Compose installed.
 - Ensure all scripts are executable (Linux/macOS: `chmod +x *.sh`).
-- Scripts assume the Dockerfiles (`femulator.server.Dockerfile` and `femulator.Dockerfile`) are in the same directory.
+- Scripts assume the Dockerfiles (`gan_game.server.Dockerfile` and `gan_game.Dockerfile`) are in the same directory.
 
 ---
 
 ## Script Descriptions
 
 ### start.sh / start.bat
-**Purpose**: Starts the FEMulator Pro application container.
+**Purpose**: Starts the "GAN vs. Human" game container.
 
 **Usage**:
 ```bash
