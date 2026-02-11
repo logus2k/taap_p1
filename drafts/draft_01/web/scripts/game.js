@@ -4,9 +4,9 @@
 const CONFIG = {
 	trialsPerRound: 10,
 	difficulty: {
-		basic: 2,
-		average: 1,
-		pro: 0.5
+		basic: 1.5,
+		average: 0.75,
+		pro: 0.325
 	}
 };
 
