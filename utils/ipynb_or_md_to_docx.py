@@ -49,23 +49,31 @@ Examples:
 import argparse
 from pathlib import Path
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import nbformat  # noqa: F811
+    from nbconvert import HTMLExporter, MarkdownExporter  # noqa: F811
+    from traitlets.config import Config  # noqa: F811
 
 
-def keep_only_image_outputs(nb):
-    """Remove text-only outputs, keep image (PNG/SVG) and optional rich HTML outputs."""
+def keep_only_image_outputs(nb, keep_text=False):
+    """Remove text-only outputs, keep image (PNG/SVG) and optional rich HTML outputs.
+    If keep_text is True, all outputs are preserved (only execution_count is cleared)."""
     for cell in nb.cells:
         if cell.get("cell_type") != "code":
             continue
-        new_outputs = []
-        for out in cell.get("outputs", []):
-            otype = out.get("output_type")
-            data = out.get("data", {})
-            has_img = any(k in data for k in ("image/png", "image/svg+xml"))
-            keep_html = "text/html" in data  # set False if you don't want rich HTML
-            if otype in {"display_data", "execute_result"} and (has_img or keep_html):
-                new_outputs.append(out)
-            # drop streams/errors/plain text-only execute_results
-        cell["outputs"] = new_outputs
+        if not keep_text:
+            new_outputs = []
+            for out in cell.get("outputs", []):
+                otype = out.get("output_type")
+                data = out.get("data", {})
+                has_img = any(k in data for k in ("image/png", "image/svg+xml"))
+                keep_html = "text/html" in data  # set False if you don't want rich HTML
+                if otype in {"display_data", "execute_result"} and (has_img or keep_html):
+                    new_outputs.append(out)
+                # drop streams/errors/plain text-only execute_results
+            cell["outputs"] = new_outputs
         cell["execution_count"] = None
     return nb
 
@@ -168,7 +176,7 @@ def process_notebook(notebook_path, base_name, output_dir, args, template_path=N
     nb = nbf.read(str(notebook_path), as_version=4)
 
     print("[2/3] Stripping text outputs, keeping charts...")
-    nb_clean = keep_only_image_outputs(nb)
+    nb_clean = keep_only_image_outputs(nb, keep_text=args.keep_text)
 
     # Export HTML if requested
     if args.html:
@@ -231,6 +239,11 @@ def main():
         action="store_true",
         help="(Notebooks only) Also export to Markdown format.",
     )
+    ap.add_argument(
+            "--keep-text",
+            action="store_true",
+            help="(Notebooks only) Preserve text outputs from code cells (print statements, errors, etc.).",
+    )    
     args = ap.parse_args()
 
     input_path = Path(args.input_file).resolve()
