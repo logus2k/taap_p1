@@ -15,8 +15,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Upgrade pip and install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu130 matplotlib "torchmetrics[image]" pydot python-socketio fastapi uvicorn
+    pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu130 && \
+    pip install --no-cache-dir matplotlib "torchmetrics[image]" pydot python-socketio fastapi uvicorn
 
 # STAGE 2: Runtime
 FROM nvidia/cuda:13.1.0-runtime-ubuntu24.04

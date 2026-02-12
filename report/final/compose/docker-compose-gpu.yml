@@ -21,6 +21,6 @@ services:
       - gan_game_network
 
 networks:
-  femulator_network:
+  gan_game_network:
     external: true
     name: gan_game_network
