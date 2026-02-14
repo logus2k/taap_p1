@@ -1,3 +1,5 @@
+name: gan_game
+
 services:
   gan_game:
     restart: unless-stopped
